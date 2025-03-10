@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+// Модель для пользователей (менеджеров)
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          Role      @default(MANAGER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  auditLogs     AuditLog[] @relation("UserAuditLogs")
+  actionsAgainst AuditLog[] @relation("TargetUserAuditLogs")
+}
+
+// Роли пользователей
+enum Role {
+  ADMIN
+  MANAGER
+}
+
+// Модель для аудита действий
+model AuditLog {
+  id          String    @id @default(cuid())
+  action      String
+  details     String?
+  userId      String
+  user        User      @relation("UserAuditLogs", fields: [userId], references: [id])
+  targetId    String?
+  targetUser  User?     @relation("TargetUserAuditLogs", fields: [targetId], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([targetId])
+}
+
+// Модель для сессий аутентификации
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+}
+
+// Модель для настроек системы
+model Settings {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  value        String
+  description  String?
+  updatedAt    DateTime @updatedAt
+}
+
+// Модель для страниц сайта
+model Page {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sections     PageSection[]
+}
+
+// Модель для секций страниц
+model PageSection {
+  id           String   @id @default(cuid())
+  pageId       String
+  page         Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  type         String   // тип секции: contacts, map, text, gallery и т.д.
+  order        Int      // порядок отображения на странице
+  content      Json     // содержимое секции в формате JSON
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([pageId])
+}
+
+// Модель для медиа-файлов
+model Media {
+  id           String   @id @default(cuid())
+  name         String   // Имя файла
+  url          String   // URL файла
+  type         String   // Тип файла (image, video, etc.)
+  size         Int      // Размер файла в байтах
+  mimeType     String   // MIME-тип файла
+  alt          String?  // Альтернативный текст для изображений
+  description  String?  // Описание файла
+  userId       String   // ID пользователя, загрузившего файл
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+}
