@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "migrate": "prisma migrate deploy",
+    "baseline": "node scripts/baseline-migrations.js",
     "start": "next start",
     "lint": "next lint"
   },
