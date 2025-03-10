@@ -1,37 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ProtekCMS
 
-## Getting Started
+Система управления контентом для компании Протек.
 
-First, run the development server:
+## Требования
+
+- Node.js 18+
+- PostgreSQL 14+
+
+## Локальная разработка
+
+1. Клонировать репозиторий:
+
+```bash
+git clone https://github.com/Bivekich/protekautocms.git
+cd protekautocms
+```
+
+2. Установить зависимости:
+
+```bash
+npm install --legacy-peer-deps
+```
+
+3. Создать файл `.env` на основе `.env.example` и заполнить необходимые переменные окружения.
+
+4. Запустить миграции базы данных:
+
+```bash
+npx prisma migrate dev
+```
+
+5. Запустить сервер разработки:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Деплой на Vercel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Создать проект на Vercel и связать его с репозиторием.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Добавить переменные окружения в настройках проекта:
 
-## Learn More
+   - `DATABASE_URL` - URL для подключения к базе данных PostgreSQL
+   - `SHADOW_DATABASE_URL` - URL для подключения к теневой базе данных (может быть таким же, как DATABASE_URL)
+   - `NEXTAUTH_SECRET` - секретный ключ для NextAuth
+   - `NEXTAUTH_URL` - URL вашего приложения (например, https://protekcms.vercel.app)
+   - `NEXT_PUBLIC_YANDEX_MAPS_API_KEY` - API ключ для Яндекс.Карт (если используется)
 
-To learn more about Next.js, take a look at the following resources:
+3. Деплой будет автоматически запущен при пуше в репозиторий.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Важные команды
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# protekautocms
+- `npm run dev` - запуск сервера разработки
+- `npm run build` - сборка проекта
+- `npm run start` - запуск собранного проекта
+- `npm run lint` - проверка кода линтером
+- `npx prisma studio` - запуск Prisma Studio для управления базой данных
+- `npx prisma migrate dev` - создание и применение миграций в режиме разработки
+- `npx prisma migrate deploy` - применение миграций в production

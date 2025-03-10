@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run migrate && prisma generate && next build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "nextjs",
+  "env": {
+    "NEXTAUTH_URL": "https://protekcms.vercel.app"
+  }
+}
