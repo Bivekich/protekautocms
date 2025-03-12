@@ -219,6 +219,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="profile">Профиль</TabsTrigger>
           <TabsTrigger value="password">Пароль</TabsTrigger>
+          <TabsTrigger value="security">Безопасность</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -400,10 +401,50 @@ export default function SettingsPage() {
                     )}
                   />
                   <Button type="submit" disabled={isPasswordSubmitting}>
-                    {isPasswordSubmitting ? 'Сохранение...' : 'Изменить пароль'}
+                    {isPasswordSubmitting ? (
+                      'Сохранение...'
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Изменить пароль
+                      </>
+                    )}
                   </Button>
                 </form>
               </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Безопасность</CardTitle>
+              <CardDescription>
+                Настройки безопасности вашей учетной записи
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium">
+                    Двухфакторная аутентификация
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Повысьте безопасность вашей учетной записи, добавив
+                    дополнительный уровень защиты при входе
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    (window.location.href = '/dashboard/settings/two-factor')
+                  }
+                >
+                  Настроить двухфакторную аутентификацию
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

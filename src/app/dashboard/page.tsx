@@ -1,19 +1,6 @@
 'use client';
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -22,235 +9,382 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowUpRight, Users, FileText, DollarSign } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 
-// Данные для графиков (заглушки)
-const barData = [
-  { name: 'Янв', value: 400 },
-  { name: 'Фев', value: 300 },
-  { name: 'Мар', value: 600 },
-  { name: 'Апр', value: 800 },
-  { name: 'Май', value: 500 },
-  { name: 'Июн', value: 900 },
+// Временные данные для демонстрации
+const mockOrders = [
+  {
+    id: '123453',
+    date: '18.02.2025',
+    client: 'Макс',
+    amount: '45 678 руб.',
+    status: 'Получен',
+    isNew: true,
+  },
+  {
+    id: '123454',
+    date: '17.02.2025',
+    client: 'Алексей',
+    amount: '12 345 руб.',
+    status: 'Получен',
+    isNew: false,
+  },
+  {
+    id: '123455',
+    date: '18.02.2025',
+    client: 'Иван',
+    amount: '78 900 руб.',
+    status: 'Получен',
+    isNew: true,
+  },
 ];
 
-const lineData = [
-  { name: 'Пн', value: 40 },
-  { name: 'Вт', value: 30 },
-  { name: 'Ср', value: 45 },
-  { name: 'Чт', value: 50 },
-  { name: 'Пт', value: 60 },
-  { name: 'Сб', value: 30 },
-  { name: 'Вс', value: 20 },
+const mockVinRequests = [
+  {
+    id: '123453',
+    date: '18.02.2025',
+    client: 'Макс',
+    status: 'Новый',
+    request: 'Тормозные колодки на Volkswagen Passat',
+    isNew: true,
+  },
+  {
+    id: '123454',
+    date: '17.02.2025',
+    client: 'Алексей',
+    status: 'Не обработан',
+    request: 'Масляный фильтр для Toyota Camry 2018',
+    isNew: false,
+  },
+  {
+    id: '123455',
+    date: '18.02.2025',
+    client: 'Иван',
+    status: 'Новый',
+    request: 'Комплект свечей зажигания для BMW X5',
+    isNew: true,
+  },
 ];
 
-const pieData = [
-  { name: 'Группа A', value: 400 },
-  { name: 'Группа B', value: 300 },
-  { name: 'Группа C', value: 300 },
-  { name: 'Группа D', value: 200 },
+const mockClients = [
+  {
+    id: '10001',
+    name: 'Максим Петров',
+    phone: '+7 (999) 123-45-67',
+    status: 'Сбой авторизации',
+  },
+  {
+    id: '10002',
+    name: 'ООО "АвтоТрейд"',
+    phone: '+7 (495) 987-65-43',
+    status: 'Смена типа пользователя',
+  },
+  {
+    id: '10003',
+    name: 'Анна Сидорова',
+    phone: '+7 (912) 345-67-89',
+    status: 'Сбой авторизации',
+  },
 ];
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 export default function DashboardPage() {
+  const [, setActiveTab] = useState('overview');
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Панель управления</h1>
         <p className="text-muted-foreground">
-          Добро пожаловать в систему управления контентом Protek.
+          Добро пожаловать в систему управления контентом Protek Auto.
         </p>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs
+        defaultValue="overview"
+        className="space-y-4"
+        onValueChange={setActiveTab}
+      >
         <TabsList>
           <TabsTrigger value="overview">Обзор</TabsTrigger>
-          <TabsTrigger value="analytics">Аналитика</TabsTrigger>
-          <TabsTrigger value="reports">Отчеты</TabsTrigger>
+          <TabsTrigger value="orders">Заказы</TabsTrigger>
+          <TabsTrigger value="vin-requests">VIN-запросы</TabsTrigger>
+          <TabsTrigger value="clients">Клиенты</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
-          {/* Карточки со статистикой */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Всего пользователей
-                </CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">
-                  +2 за последний месяц
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Активные сессии
-                </CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">4</div>
-                <p className="text-xs text-muted-foreground">
-                  +1 за последний час
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Действия сегодня
-                </CardTitle>
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">24</div>
-                <p className="text-xs text-muted-foreground">
-                  +5 за последний час
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Всего записей
-                </CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">145</div>
-                <p className="text-xs text-muted-foreground">
-                  +18 за последнюю неделю
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* График активности */}
-          <Card className="col-span-4">
-            <CardHeader>
-              <CardTitle>Активность за последние 6 месяцев</CardTitle>
-              <CardDescription>
-                Количество действий в системе по месяцам
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pl-2">
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#8884d8" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+        <TabsContent value="overview" className="space-y-6">
+          {/* Секция Заказы */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Новые заказы</CardTitle>
+                <CardDescription>Заказы, требующие обработки</CardDescription>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setActiveTab('orders')}
+                tabIndex={0}
+                aria-label="Перейти ко всем заказам"
+              >
+                Все заказы
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Номер заказа</TableHead>
+                    <TableHead>Дата заказа</TableHead>
+                    <TableHead>Клиент</TableHead>
+                    <TableHead>Сумма</TableHead>
+                    <TableHead>Статус</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium"
+                          tabIndex={0}
+                          aria-label={`Перейти к заказу ${order.id}`}
+                        >
+                          {order.id}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{order.date}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium"
+                          tabIndex={0}
+                          aria-label={`Перейти к клиенту ${order.client}`}
+                        >
+                          {order.client}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{order.amount}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`${
+                            order.isNew
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-red-50 text-red-700 border-red-200'
+                          }`}
+                        >
+                          {order.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Секция VIN-запросы */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Новые VIN-запросы</CardTitle>
+                <CardDescription>
+                  VIN-запросы, требующие обработки
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setActiveTab('vin-requests')}
+                tabIndex={0}
+                aria-label="Перейти ко всем VIN-запросам"
+              >
+                Все VIN-запросы
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Номер запроса</TableHead>
+                    <TableHead>Дата запроса</TableHead>
+                    <TableHead>Клиент</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Запрос</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockVinRequests.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-medium">
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium"
+                          tabIndex={0}
+                          aria-label={`Перейти к запросу ${request.id}`}
+                        >
+                          {request.id}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{request.date}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium"
+                          tabIndex={0}
+                          aria-label={`Перейти к клиенту ${request.client}`}
+                        >
+                          {request.client}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`${
+                            request.isNew
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-red-50 text-red-700 border-red-200'
+                          }`}
+                        >
+                          {request.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {request.request}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Секция Клиенты */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Клиенты, требующие внимания</CardTitle>
+                <CardDescription>
+                  Клиенты с проблемами авторизации или сменой типа
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setActiveTab('clients')}
+                tabIndex={0}
+                aria-label="Перейти ко всем клиентам"
+              >
+                Все клиенты
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Номер клиента</TableHead>
+                    <TableHead>Имя</TableHead>
+                    <TableHead>Телефон</TableHead>
+                    <TableHead>Статус</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockClients.map((client) => (
+                    <TableRow key={client.id}>
+                      <TableCell className="font-medium">{client.id}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium"
+                          tabIndex={0}
+                          aria-label={`Перейти к клиенту ${client.name}`}
+                        >
+                          {client.name}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{client.phone}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`${
+                            client.status === 'Сбой авторизации'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-blue-50 text-blue-700 border-blue-200'
+                          }`}
+                        >
+                          {client.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-            <Card className="col-span-4">
-              <CardHeader>
-                <CardTitle>Активность за неделю</CardTitle>
-                <CardDescription>
-                  Количество действий по дням недели
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pl-2">
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={lineData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#8884d8"
-                        activeDot={{ r: 8 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="col-span-3">
-              <CardHeader>
-                <CardTitle>Распределение действий</CardTitle>
-                <CardDescription>По категориям</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) =>
-                          `${name} ${(percent * 100).toFixed(0)}%`
-                        }
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-4">
+        <TabsContent value="orders" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Доступные отчеты</CardTitle>
+              <CardTitle>Все заказы</CardTitle>
+              <CardDescription>Полный список заказов в системе</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Здесь будет расширенный список всех заказов с дополнительными
+                фильтрами и функциями.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vin-requests" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Все VIN-запросы</CardTitle>
               <CardDescription>
-                Список отчетов, которые можно сформировать
+                Полный список VIN-запросов в системе
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium">
-                    Отчет по активности пользователей
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Показывает активность пользователей за выбранный период
-                  </p>
-                </div>
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium">Отчет по аудиту действий</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Детальный отчет по всем действиям в системе
-                  </p>
-                </div>
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium">Отчет по менеджерам</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Информация о менеджерах и их активности
-                  </p>
-                </div>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Здесь будет расширенный список всех VIN-запросов с
+                дополнительными фильтрами и функциями.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="clients" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Все клиенты</CardTitle>
+              <CardDescription>
+                Полный список клиентов в системе
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Здесь будет расширенный список всех клиентов с дополнительными
+                фильтрами и функциями.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

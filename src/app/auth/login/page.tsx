@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { TwoFactorForm } from '@/components/two-factor/TwoFactorForm';
 
 // Схема валидации формы
 const formSchema = z.object({
@@ -42,6 +43,10 @@ export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Инициализация формы
   const form = useForm<z.infer<typeof formSchema>>({
@@ -55,15 +60,30 @@ export default function LoginPage() {
   // Обработчик отправки формы
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
+    setErrorMessage(null);
 
     try {
+      console.log('Попытка входа для:', values.email);
+
       const result = await signIn('credentials', {
         email: values.email,
         password: values.password,
         redirect: false,
       });
 
+      console.log('Результат входа:', result);
+
       if (result?.error) {
+        // Проверяем, требуется ли 2FA
+        if (result.error === 'RequiresTwoFactor') {
+          console.log('Требуется 2FA');
+          setUserEmail(values.email);
+          setUserPassword(values.password);
+          setRequiresTwoFactor(true);
+          return;
+        }
+
+        setErrorMessage(`Ошибка входа: ${result.error}`);
         toast.error('Ошибка входа. Проверьте email и пароль.');
         return;
       }
@@ -85,11 +105,29 @@ export default function LoginPage() {
       router.refresh();
     } catch (error) {
       console.error('Login error:', error);
+      setErrorMessage(
+        `Ошибка входа: ${
+          error instanceof Error ? error.message : 'Неизвестная ошибка'
+        }`
+      );
       toast.error('Ошибка входа. Проверьте email и пароль.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Если требуется 2FA, показываем форму ввода кода
+  if (requiresTwoFactor) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
+        <TwoFactorForm
+          email={userEmail}
+          password={userPassword}
+          callbackUrl="/dashboard"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
@@ -103,6 +141,12 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {errorMessage && (
+            <div className="mb-4 p-3 bg-red-50 text-red-800 rounded-md text-sm">
+              {errorMessage}
+            </div>
+          )}
+
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(handleSubmit)}

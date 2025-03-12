@@ -38,6 +38,7 @@ const navigationItems = [
     href: '/dashboard',
     icon: BarChart3,
     adminOnly: false,
+    badge: 'Верстка',
   },
   {
     title: 'Клиенты (UI)',
