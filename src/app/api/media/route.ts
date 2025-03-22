@@ -99,6 +99,18 @@ export async function POST(request: NextRequest) {
     // Определяем путь для сохранения файла
     const publicDir = join(process.cwd(), 'public');
     const uploadDir = join(publicDir, 'uploads');
+
+    // Убедимся, что директория существует
+    try {
+      await import('fs').then((fs) => {
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+      });
+    } catch (err) {
+      console.error('Ошибка при проверке/создании директории:', err);
+    }
+
     const filePath = join(uploadDir, fileName);
     const fileUrl = `/uploads/${fileName}`;
 

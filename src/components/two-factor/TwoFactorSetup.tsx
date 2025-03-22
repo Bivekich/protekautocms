@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,12 +12,14 @@ import {
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle } from 'lucide-react';
+import Image from 'next/image';
 
 type TwoFactorSetupProps = {
   onComplete?: () => void;
 };
 
 export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
+  const { data: session, update } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -85,6 +88,15 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
       setSuccess('Двухфакторная аутентификация успешно настроена');
       setTwoFactorEnabled(true);
 
+      // Обновляем сессию пользователя, чтобы уведомление исчезло
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          requiresTwoFactor: true,
+        },
+      });
+
       if (onComplete) {
         onComplete();
       }
@@ -120,6 +132,15 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
       setQrCode(null);
       setSecret(null);
 
+      // Обновляем сессию пользователя при отключении 2FA
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          requiresTwoFactor: false,
+        },
+      });
+
       if (onComplete) {
         onComplete();
       }
@@ -139,7 +160,7 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full max-w-full">
       <CardHeader>
         <CardTitle>Двухфакторная аутентификация</CardTitle>
         <CardDescription>
@@ -163,39 +184,47 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
         )}
 
         {twoFactorEnabled ? (
-          <div className="text-center py-4">
-            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <p className="text-lg font-medium">
-              Двухфакторная аутентификация активирована
-            </p>
-            <p className="text-muted-foreground mt-2">
-              Теперь при входе в систему вам потребуется ввести код из
-              приложения аутентификатора
-            </p>
+          <div className="text-left py-4">
+            <div className="flex items-start gap-4">
+              <CheckCircle className="h-8 w-8 text-green-500 flex-shrink-0" />
+              <div>
+                <p className="text-lg font-medium">
+                  Двухфакторная аутентификация активирована
+                </p>
+                <p className="text-muted-foreground mt-2">
+                  Теперь при входе в систему вам потребуется ввести код из
+                  приложения аутентификатора
+                </p>
+              </div>
+            </div>
           </div>
         ) : (
           <>
             {qrCode && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="bg-white p-2 rounded-lg">
-                  <img
-                    src={qrCode}
-                    alt="QR-код для настройки 2FA"
-                    className="w-48 h-48"
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Отсканируйте QR-код с помощью приложения аутентификатора
-                    (Google Authenticator, Microsoft Authenticator, Authy и
-                    т.д.)
-                  </p>
-                  {secret && (
-                    <p className="text-xs text-muted-foreground">
-                      Или введите этот код вручную:{' '}
-                      <span className="font-mono">{secret}</span>
+              <div className="flex flex-col space-y-4">
+                <div className="flex flex-col md:flex-row md:items-start gap-6">
+                  <div className="bg-white p-2 rounded-lg self-start">
+                    <Image
+                      src={qrCode}
+                      alt="QR-код для настройки 2FA"
+                      width={192}
+                      height={192}
+                      className="w-48 h-48"
+                    />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Отсканируйте QR-код с помощью приложения аутентификатора
+                      (Google Authenticator, Microsoft Authenticator, Authy и
+                      т.д.)
                     </p>
-                  )}
+                    {secret && (
+                      <p className="text-xs text-muted-foreground">
+                        Или введите этот код вручную:{' '}
+                        <span className="font-mono">{secret}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="w-full space-y-4 mt-4">
@@ -205,14 +234,14 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
                       placeholder="Введите код из приложения"
                       value={token}
                       onChange={(e) => setToken(e.target.value)}
-                      className="text-center"
+                      className="max-w-xs"
                       maxLength={6}
                       required
                     />
                   </div>
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-auto"
                     disabled={isLoading || token.length !== 6}
                   >
                     {isLoading && (
@@ -228,10 +257,10 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
       </CardContent>
 
       {twoFactorEnabled && (
-        <CardFooter>
+        <CardFooter className="flex justify-start">
           <Button
             variant="outline"
-            className="w-full text-red-500 hover:text-red-700 hover:bg-red-50"
+            className="w-auto text-red-500 hover:text-red-700 hover:bg-red-50"
             onClick={handleDisable}
             disabled={isLoading}
           >

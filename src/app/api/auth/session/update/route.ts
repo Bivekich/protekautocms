@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email } = body;
+    const { name, email, requiresTwoFactor } = body;
 
     // Обновляем только разрешенные поля
     const updatedSession = {
@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
         ...session.user,
         ...(name && { name }),
         ...(email && { email }),
+        ...(requiresTwoFactor !== undefined && { requiresTwoFactor }),
       },
     };
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { verifyTOTP } from '@/lib/two-factor';
 import { db } from '@/lib/db';
+import { verifyTOTP } from '@/lib/two-factor';
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Получаем пользователя и его секрет 2FA
+    // Получаем пользователя с его секретом 2FA
     const user = await db.user.findUnique({
       where: { email },
       select: {
@@ -26,14 +26,17 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json(
         { error: 'Пользователь не найден' },
-        { status: 404 }
+        { status: 400 }
       );
     }
 
-    // Проверяем, включен ли 2FA
+    // Проверяем, включена ли 2FA для пользователя
     if (!user.twoFactorEnabled || !user.twoFactorSecret) {
       return NextResponse.json(
-        { error: 'Двухфакторная аутентификация не активирована' },
+        {
+          error:
+            'Двухфакторная аутентификация не активирована для пользователя',
+        },
         { status: 400 }
       );
     }
@@ -43,16 +46,19 @@ export async function POST(request: Request) {
 
     if (!isValid) {
       return NextResponse.json(
-        { error: 'Неверный код подтверждения' },
+        { error: 'Неверный код двухфакторной аутентификации' },
         { status: 400 }
       );
     }
 
+    // Если код верный, возвращаем успешный ответ
     return NextResponse.json({
       success: true,
-      message: 'Код подтверждения верный',
+      message: 'Код подтвержден успешно',
+      userId: user.id,
     });
-  } catch {
+  } catch (error) {
+    console.error('Ошибка при валидации 2FA:', error);
     return NextResponse.json(
       { error: 'Внутренняя ошибка сервера' },
       { status: 500 }

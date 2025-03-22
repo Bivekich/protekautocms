@@ -52,10 +52,29 @@ export const authOptions: NextAuthOptions = {
               throw new Error('RequiresTwoFactor');
             }
 
-            // Проверяем код 2FA
-            // В реальном приложении здесь должна быть проверка кода
-            // Для этого примера мы предполагаем, что проверка уже была выполнена на клиенте
-            // через API-маршрут /api/auth/two-factor/validate
+            // Проверяем код 2FA через API
+            try {
+              const response = await fetch(
+                `${process.env.NEXTAUTH_URL}/api/auth/two-factor/validate`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    email: user.email,
+                    token: credentials.twoFactorCode,
+                  }),
+                }
+              );
+
+              const data = await response.json();
+
+              if (!response.ok || !data.success) {
+                throw new Error('InvalidTwoFactorCode');
+              }
+            } catch (error) {
+              console.error('Ошибка при проверке кода 2FA:', error);
+              throw new Error('InvalidTwoFactorCode');
+            }
           }
 
           return {
@@ -63,6 +82,8 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.name,
             role: user.role,
+            avatarUrl: user.avatarUrl || undefined,
+            requiresTwoFactor: user.twoFactorEnabled,
           };
         } catch (error) {
           throw error;
@@ -77,14 +98,29 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string;
         session.user.email = token.email as string;
         session.user.role = token.role as string;
+        session.user.avatarUrl = token.avatarUrl as string | undefined;
+        session.user.requiresTwoFactor = token.requiresTwoFactor as
+          | boolean
+          | undefined;
       }
       return session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.avatarUrl = user.avatarUrl;
+        token.requiresTwoFactor = user.requiresTwoFactor;
       }
+
+      // Обрабатываем обновление сессии
+      if (trigger === 'update' && session?.user) {
+        // Обновляем поле requiresTwoFactor в токене, если оно изменилось в сессии
+        if (session.user.requiresTwoFactor !== undefined) {
+          token.requiresTwoFactor = session.user.requiresTwoFactor;
+        }
+      }
+
       return token;
     },
   },
@@ -97,6 +133,7 @@ declare module 'next-auth' {
     name: string;
     email: string;
     role: string;
+    avatarUrl?: string;
     requiresTwoFactor?: boolean;
   }
 
@@ -106,6 +143,7 @@ declare module 'next-auth' {
       name: string;
       email: string;
       role: string;
+      avatarUrl?: string;
       requiresTwoFactor?: boolean;
     };
   }
@@ -115,6 +153,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
     role: string;
+    avatarUrl?: string;
     requiresTwoFactor?: boolean;
   }
 }

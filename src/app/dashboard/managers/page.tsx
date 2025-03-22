@@ -61,6 +61,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // Схема валидации формы
 const formSchema = z.object({
@@ -88,6 +89,7 @@ interface Manager {
   email: string;
   role: 'ADMIN' | 'MANAGER';
   createdAt: string;
+  avatarUrl?: string;
 }
 
 export default function ManagersPage() {
@@ -430,7 +432,18 @@ export default function ManagersPage() {
                   filteredManagers.map((manager) => (
                     <TableRow key={manager.id}>
                       <TableCell className="font-medium">
-                        {manager.name}
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage
+                              src={manager.avatarUrl || ''}
+                              alt={manager.name}
+                            />
+                            <AvatarFallback>
+                              {manager.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {manager.name}
+                        </div>
                       </TableCell>
                       <TableCell>{manager.email}</TableCell>
                       <TableCell>

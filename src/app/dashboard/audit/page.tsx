@@ -51,6 +51,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // Тип для записи аудита
 interface AuditLog {
@@ -65,12 +66,14 @@ interface AuditLog {
     name: string;
     email: string;
     role: string;
+    avatarUrl?: string;
   };
   targetUser?: {
     id: string;
     name: string;
     email: string;
     role: string;
+    avatarUrl?: string;
   } | null;
 }
 
@@ -438,12 +441,28 @@ export default function AuditPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {log.user.role === 'ADMIN' ? (
-                              <Shield className="h-4 w-4 text-blue-500" />
-                            ) : (
-                              <User className="h-4 w-4 text-gray-500" />
-                            )}
-                            {log.user.name}
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                src={log.user.avatarUrl || ''}
+                                alt={log.user.name}
+                              />
+                              <AvatarFallback>
+                                {log.user.name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{log.user.name}</div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                {log.user.role === 'ADMIN' ? (
+                                  <Shield className="h-3 w-3 text-blue-500" />
+                                ) : (
+                                  <User className="h-3 w-3 text-gray-500" />
+                                )}
+                                {log.user.role === 'ADMIN'
+                                  ? 'Администратор'
+                                  : 'Менеджер'}
+                              </div>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="max-w-[300px] truncate">

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { User, Lock, Save } from 'lucide-react';
+import { User, Lock, Save, Camera } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 import { Button } from '@/components/ui/button';
@@ -66,9 +66,12 @@ export default function SettingsPage() {
     name: string;
     email: string;
     role: string;
+    avatarUrl?: string;
   } | null>(null);
   const [isProfileSubmitting, setIsProfileSubmitting] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Инициализация формы профиля
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
@@ -198,6 +201,66 @@ export default function SettingsPage() {
     }
   };
 
+  // Обработчик загрузки аватарки
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Проверка типа файла
+    if (!file.type.startsWith('image/')) {
+      toast.error('Пожалуйста, выберите изображение');
+      return;
+    }
+
+    // Проверка размера файла (не более 5 МБ)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Размер файла не должен превышать 5 МБ');
+      return;
+    }
+
+    try {
+      setIsAvatarUploading(true);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/settings/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Ошибка при загрузке аватарки');
+      }
+
+      const updatedUser = await response.json();
+      setUserData(updatedUser);
+
+      // Обновляем сессию с новыми данными
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          avatarUrl: updatedUser.avatarUrl,
+        },
+      });
+
+      toast.success('Аватарка успешно обновлена');
+    } catch (error) {
+      console.error('Ошибка при загрузке аватарки:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Ошибка при загрузке аватарки'
+      );
+    } finally {
+      setIsAvatarUploading(false);
+      // Сбрасываем значение input, чтобы можно было загрузить тот же файл повторно
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (!userData && isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -232,12 +295,39 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src="" alt={userData?.name || ''} />
-                  <AvatarFallback className="text-2xl">
-                    {userData?.name?.charAt(0) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage
+                      src={userData?.avatarUrl || ''}
+                      alt={userData?.name || ''}
+                    />
+                    <AvatarFallback className="text-2xl">
+                      {userData?.name?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-2 -right-2">
+                    <div className="relative">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isAvatarUploading}
+                      >
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        disabled={isAvatarUploading}
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div>
                   <h3 className="text-lg font-medium">{userData?.name}</h3>
                   <p className="text-sm text-muted-foreground">

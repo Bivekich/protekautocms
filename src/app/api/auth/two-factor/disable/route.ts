@@ -46,6 +46,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: 'Двухфакторная аутентификация успешно отключена',
+      twoFactorEnabled: false,
     });
   } catch (error) {
     console.error('Ошибка при отключении 2FA:', error);

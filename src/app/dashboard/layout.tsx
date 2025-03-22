@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
@@ -12,14 +12,13 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronDown,
   Image,
+  Shield,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -30,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Toaster } from '@/components/ui/sonner';
+import { TwoFactorAlert } from '@/components/two-factor/TwoFactorAlert';
 
 // Определение навигационных элементов
 const navigationItems = [
@@ -50,6 +50,12 @@ const navigationItems = [
   {
     title: 'Контент',
     href: '/dashboard/content',
+    icon: ClipboardList,
+    adminOnly: false,
+  },
+  {
+    title: 'Каталог товаров',
+    href: '/dashboard/catalog',
     icon: ClipboardList,
     adminOnly: false,
   },
@@ -77,12 +83,6 @@ const navigationItems = [
     icon: Settings,
     adminOnly: false,
   },
-  {
-    title: 'Настройки',
-    href: '/dashboard/settings',
-    icon: Settings,
-    adminOnly: false,
-  },
 ];
 
 export default function DashboardLayout({
@@ -95,7 +95,34 @@ export default function DashboardLayout({
   const { data: session, status } = useSession();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const [user, setUser] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    avatarUrl?: string | null;
+    requiresTwoFactor?: boolean;
+  } | null>(null);
+
   // Проверка аутентификации
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/login');
+    }
+
+    if (session?.user) {
+      // Обновляем состояние пользователя из сессии
+      setUser({
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        role: session.user.role,
+        avatarUrl: session.user.avatarUrl,
+        requiresTwoFactor: session.user.requiresTwoFactor,
+      });
+    }
+  }, [status, router, session]);
+
   if (status === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -105,11 +132,9 @@ export default function DashboardLayout({
   }
 
   if (status === 'unauthenticated') {
-    router.push('/auth/login');
     return null;
   }
 
-  const user = session?.user;
   const isAdmin = user?.role === 'ADMIN';
 
   // Обработчик выхода из системы
@@ -120,13 +145,13 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Боковая панель для десктопа */}
-      <aside className="hidden md:flex flex-col w-64 border-r bg-white dark:bg-gray-800 dark:border-gray-700">
+      <aside className="hidden md:flex flex-col w-64 border-r bg-white dark:bg-gray-800 dark:border-gray-700 fixed h-screen">
         <div className="p-4 h-16 flex items-center border-b">
           <Link href="/dashboard" className="flex items-center">
             <h1 className="text-xl font-bold">ProtekCMS</h1>
           </Link>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navigationItems.map((item) => {
             // Пропускаем элементы, доступные только админам, если пользователь не админ
             if (item.adminOnly && !isAdmin) return null;
@@ -153,49 +178,16 @@ export default function DashboardLayout({
             );
           })}
         </nav>
-        <div className="p-4 border-t">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="w-full justify-start px-2">
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="" alt={user?.name || ''} />
-                    <AvatarFallback>
-                      {user?.name?.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start text-sm">
-                    <span className="font-medium">{user?.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {isAdmin ? 'Администратор' : 'Менеджер'}
-                    </span>
-                  </div>
-                  <ChevronDown className="h-4 w-4 ml-auto" />
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Мой аккаунт</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/settings">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Настройки</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Выйти</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </aside>
 
       {/* Мобильная навигация */}
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
         <SheetTrigger asChild className="md:hidden">
-          <Button variant="ghost" size="icon" className="absolute top-4 left-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="fixed top-4 left-4 z-20"
+          >
             <Menu className="h-6 w-6" />
           </Button>
         </SheetTrigger>
@@ -212,7 +204,7 @@ export default function DashboardLayout({
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <nav className="flex-1 p-4 space-y-1">
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto max-h-[calc(100vh-4rem)]">
             {navigationItems.map((item) => {
               if (item.adminOnly && !isAdmin) return null;
 
@@ -239,48 +231,80 @@ export default function DashboardLayout({
               );
             })}
           </nav>
-          <Separator />
-          <div className="p-4">
-            <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src="" alt={user?.name || ''} />
-                <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col items-start text-sm">
-                <span className="font-medium">{user?.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {isAdmin ? 'Администратор' : 'Менеджер'}
-                </span>
-              </div>
-            </div>
-            <div className="mt-4 space-y-1">
-              <Button variant="ghost" className="w-full justify-start" asChild>
-                <Link href="/dashboard/settings">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Настройки</span>
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-red-500"
-                onClick={handleLogout}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Выйти</span>
-              </Button>
-            </div>
-          </div>
         </SheetContent>
       </Sheet>
 
       {/* Основной контент */}
-      <div className="flex-1 flex flex-col">
-        <header className="h-16 border-b bg-white dark:bg-gray-800 dark:border-gray-700 flex items-center justify-end px-4 md:px-6">
-          <div className="md:hidden w-6" />{' '}
-          {/* Пространство для кнопки меню на мобильных */}
-          <h1 className="text-lg font-semibold md:hidden mx-auto">ProtekCMS</h1>
+      <div className="flex-1 flex flex-col md:ml-64">
+        <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+          <div className="flex flex-1 items-center gap-4">
+            {/* Для мобильных устройств показываем только иконку */}
+            <div className="md:hidden">
+              <Shield className="h-6 w-6" />
+            </div>
+            {/* Для десктопа не показываем логотип, так как он уже есть в боковой панели */}
+          </div>
+          <div className="flex items-center gap-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 px-2 py-1 h-auto rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  {/* Информация о пользователе */}
+                  <div className="hidden md:block text-right">
+                    <p className="text-sm font-medium">{user?.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user?.role === 'ADMIN' ? 'Администратор' : 'Менеджер'}
+                    </p>
+                  </div>
+                  <Avatar className="h-8 w-8">
+                    {user?.avatarUrl ? (
+                      <AvatarImage
+                        src={user.avatarUrl}
+                        alt={user.name || 'Аватар пользователя'}
+                      />
+                    ) : (
+                      <AvatarFallback>
+                        {user?.name
+                          ? user.name
+                              .split(' ')
+                              .map((n) => n[0])
+                              .join('')
+                              .toUpperCase()
+                          : 'U'}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Мой аккаунт</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/settings">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Настройки</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Выйти</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
-        <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
+          {user && !user.requiresTwoFactor && (
+            <TwoFactorAlert
+              userName={user.name}
+              userId={user.id}
+              requiresTwoFactor={user.requiresTwoFactor}
+            />
+          )}
+          {children}
+        </main>
       </div>
 
       <Toaster position="top-center" />

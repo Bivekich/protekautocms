@@ -19,7 +19,7 @@ export default function TwoFactorPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="w-full max-w-full py-6 space-y-6">
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
@@ -47,12 +47,8 @@ export default function TwoFactorPage() {
           <TwoFactorSetup onComplete={handleComplete} />
 
           {setupComplete && (
-            <div className="text-center">
-              <Button
-                variant="outline"
-                onClick={handleBack}
-                className="mx-auto"
-              >
+            <div className="text-left">
+              <Button variant="outline" onClick={handleBack}>
                 Вернуться к настройкам
               </Button>
             </div>

@@ -57,6 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: 'Двухфакторная аутентификация успешно активирована',
+      twoFactorEnabled: true,
     });
   } catch (error) {
     console.error('Ошибка при проверке 2FA:', error);

@@ -22,6 +22,7 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
+        avatarUrl: true,
       },
     });
 
@@ -122,6 +123,7 @@ export async function PATCH(request: NextRequest) {
         name: true,
         email: true,
         role: true,
+        avatarUrl: true,
       },
     });
 

@@ -20,6 +20,7 @@ export async function GET() {
         email: true,
         role: true,
         createdAt: true,
+        avatarUrl: true,
       },
       orderBy: {
         createdAt: 'desc',
