@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { slugify } from '@/lib/utils';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { createAuditLog } from '@/lib/create-audit-log';
 
 // Схема валидации для обновления товара
 const updateProductSchema = z.object({
@@ -39,6 +40,31 @@ const updateProductSchema = z.object({
       })
     )
     .optional(),
+  options: z
+    .array(
+      z.object({
+        id: z.string().optional(), // Существующая опция имеет ID
+        name: z.string().min(1, 'Название опции обязательно'),
+        type: z.enum(['single', 'multiple'], {
+          errorMap: () => ({
+            message: 'Тип опции должен быть single или multiple',
+          }),
+        }),
+        values: z
+          .array(
+            z.object({
+              id: z.string().optional(), // Существующее значение имеет ID
+              value: z.string().min(1, 'Значение опции обязательно'),
+              price: z
+                .number()
+                .min(0, 'Цена не может быть отрицательной')
+                .default(0),
+            })
+          )
+          .min(1, 'Опция должна иметь хотя бы одно значение'),
+      })
+    )
+    .optional(),
 });
 
 // GET /api/catalog/products/[id] - получение товара по ID
@@ -54,6 +80,11 @@ export async function GET(
         category: true,
         characteristics: true,
         images: true,
+        options: {
+          include: {
+            values: true,
+          },
+        },
       },
     });
 
@@ -140,6 +171,113 @@ export async function PATCH(
       },
     });
 
+    // Обработка опций, если они предоставлены
+    if (validatedData.options) {
+      // Получаем существующие опции товара
+      const existingOptions = await prisma.productOption.findMany({
+        where: { productId: id },
+        include: { values: true },
+      });
+
+      // Создаем Set с ID существующих опций для быстрого поиска
+      const existingOptionIds = new Set(existingOptions.map((opt) => opt.id));
+
+      // Проходимся по каждой опции из запроса
+      for (const option of validatedData.options) {
+        if (option.id && existingOptionIds.has(option.id)) {
+          // Обновляем существующую опцию
+          await prisma.productOption.update({
+            where: { id: option.id },
+            data: {
+              name: option.name,
+              type: option.type,
+            },
+          });
+
+          // Обрабатываем значения опции
+          const existingValues =
+            existingOptions.find((opt) => opt.id === option.id)?.values || [];
+          const existingValueIds = new Set(existingValues.map((val) => val.id));
+
+          // Обрабатываем каждое значение опции
+          for (const value of option.values) {
+            if (value.id && existingValueIds.has(value.id)) {
+              // Обновляем существующее значение
+              await prisma.productOptionValue.update({
+                where: { id: value.id },
+                data: {
+                  value: value.value,
+                  price: value.price,
+                },
+              });
+            } else {
+              // Создаем новое значение
+              await prisma.productOptionValue.create({
+                data: {
+                  value: value.value,
+                  price: value.price,
+                  optionId: option.id,
+                },
+              });
+            }
+          }
+
+          // Удаляем значения, которых нет в запросе
+          const valueIdsToKeep = new Set(
+            option.values.filter((v) => v.id).map((v) => v.id as string)
+          );
+          for (const existingValue of existingValues) {
+            if (!valueIdsToKeep.has(existingValue.id)) {
+              await prisma.productOptionValue.delete({
+                where: { id: existingValue.id },
+              });
+            }
+          }
+        } else {
+          // Создаем новую опцию
+          const newOption = await prisma.productOption.create({
+            data: {
+              name: option.name,
+              type: option.type,
+              productId: id,
+            },
+          });
+
+          // Создаем значения для новой опции
+          for (const value of option.values) {
+            await prisma.productOptionValue.create({
+              data: {
+                value: value.value,
+                price: value.price,
+                optionId: newOption.id,
+              },
+            });
+          }
+        }
+      }
+
+      // Удаляем опции, которых нет в запросе
+      const optionIdsToKeep = new Set(
+        validatedData.options.filter((o) => o.id).map((o) => o.id as string)
+      );
+      for (const existingOption of existingOptions) {
+        if (!optionIdsToKeep.has(existingOption.id)) {
+          await prisma.productOption.delete({
+            where: { id: existingOption.id },
+          });
+        }
+      }
+    }
+
+    // После успешного обновления, создаем запись в аудите
+    await createAuditLog({
+      action: 'UPDATE',
+      details: `Обновление товара: ${existingProduct.name}`,
+      userId: session.user.id,
+      targetId: id,
+      targetType: 'product',
+    });
+
     return NextResponse.json(updatedProduct);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -182,6 +320,15 @@ export async function DELETE(
     // Удаление товара
     await prisma.product.delete({
       where: { id },
+    });
+
+    // Создаем запись в аудите о удалении
+    await createAuditLog({
+      action: 'DELETE',
+      details: `Удаление товара: ${product.name}`,
+      userId: session.user.id,
+      targetId: id,
+      targetType: 'product',
     });
 
     return NextResponse.json(

@@ -313,6 +313,14 @@ export default function ProductForm({
           name,
           value,
         })),
+        options: product.options.map((option) => ({
+          name: option.name,
+          type: option.type,
+          values: option.values.map((value) => ({
+            value: value.value,
+            price: value.price,
+          })),
+        })),
       };
 
       // Отправка запроса на сервер

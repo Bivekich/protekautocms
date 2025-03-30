@@ -38,6 +38,7 @@ const ApiDocsClient = () => {
         <TabsList>
           <TabsTrigger value="pages">Страницы</TabsTrigger>
           <TabsTrigger value="sections">Секции</TabsTrigger>
+          <TabsTrigger value="catalog">Каталог</TabsTrigger>
           <TabsTrigger value="example">Живой пример</TabsTrigger>
         </TabsList>
 
@@ -550,6 +551,639 @@ console.log(data);`}
     }
   ]
 }`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="catalog" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>API каталога товаров</CardTitle>
+              <CardDescription>
+                Документация по работе с каталогом товаров через API
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="products-list">
+                  <AccordionTrigger>Получение списка товаров</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        Получение списка товаров с пагинацией и фильтрацией.
+                      </p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          GET /api/catalog/products
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Параметры запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`page - номер страницы (по умолчанию 1)
+limit - количество товаров на странице (по умолчанию 20)
+categoryId - ID категории для фильтрации
+search - поисковый запрос для фильтрации по названию, артикулу и описанию
+stock - фильтр по наличию (instock, outofstock)
+visibility - фильтр по видимости (visible, hidden)
+includeSubcategories - включить товары из подкатегорий (true/false)`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Пример ответа:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`{
+  "products": [
+    {
+      "id": "string",
+      "name": "string",
+      "slug": "string",
+      "sku": "string",
+      "description": "string",
+      "wholesalePrice": 0,
+      "retailPrice": 0,
+      "stock": 0,
+      "isVisible": true,
+      "categoryId": "string",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "mainImage": "string",
+      "imageUrls": ["string"],
+      "category": {
+        "id": "string",
+        "name": "string",
+        "slug": "string",
+        "parentId": "string"
+      }
+    }
+  ],
+  "pagination": {
+    "total": 0,
+    "page": 1,
+    "limit": 20,
+    "pages": 0
+  }
+}`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Получение первой страницы товаров из категории с ID "cat1"
+const response = await fetch('/api/catalog/products?categoryId=cat1&page=1&limit=10');
+const data = await response.json();
+console.log(data.products);
+console.log(data.pagination);`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="product-detail">
+                  <AccordionTrigger>Получение товара по ID</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        Получение подробной информации о товаре по его ID.
+                      </p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          GET /api/catalog/products/:id
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Параметры запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`id - уникальный идентификатор товара`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Пример ответа:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`{
+  "id": "string",
+  "name": "string",
+  "slug": "string",
+  "sku": "string",
+  "description": "string",
+  "wholesalePrice": 0,
+  "retailPrice": 0,
+  "stock": 0,
+  "isVisible": true,
+  "categoryId": "string",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "category": {
+    "id": "string",
+    "name": "string",
+    "slug": "string"
+  },
+  "images": [
+    {
+      "id": "string",
+      "url": "string",
+      "alt": "string",
+      "order": 0
+    }
+  ],
+  "characteristics": [
+    {
+      "id": "string",
+      "name": "string",
+      "value": "string"
+    }
+  ],
+  "options": [
+    {
+      "id": "string",
+      "name": "string",
+      "type": "single" | "multiple",
+      "values": [
+        {
+          "id": "string",
+          "value": "string",
+          "price": 0
+        }
+      ]
+    }
+  ]
+}`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Получение товара с ID "prod1"
+const response = await fetch('/api/catalog/products/prod1');
+const product = await response.json();
+console.log(product);`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="product-create">
+                  <AccordionTrigger>Создание товара</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        Создание нового товара в каталоге.
+                      </p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          POST /api/catalog/products
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Тело запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`{
+  "name": "string", // обязательное
+  "sku": "string", // обязательное
+  "description": "string",
+  "wholesalePrice": 0, // оптовая цена
+  "retailPrice": 0, // розничная цена
+  "stock": 0, // количество на складе
+  "isVisible": true, // видимость товара
+  "categoryId": "string", // ID категории
+  "images": [
+    {
+      "url": "string",
+      "alt": "string"
+    }
+  ],
+  "characteristics": [
+    {
+      "name": "string",
+      "value": "string"
+    }
+  ],
+  "options": [
+    {
+      "name": "string",
+      "type": "single" | "multiple",
+      "values": [
+        {
+          "value": "string",
+          "price": 0
+        }
+      ]
+    }
+  ]
+}`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Пример ответа:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`{
+  "id": "string",
+  "name": "string",
+  "slug": "string",
+  "sku": "string",
+  "description": "string",
+  "wholesalePrice": 0,
+  "retailPrice": 0,
+  "stock": 0,
+  "isVisible": true,
+  "categoryId": "string",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "category": {
+    "id": "string",
+    "name": "string"
+  }
+}`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Создание нового товара
+const response = await fetch('/api/catalog/products', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'Новый товар',
+    sku: 'SKU-001',
+    description: 'Описание нового товара',
+    retailPrice: 1000,
+    wholesalePrice: 800,
+    stock: 10,
+    isVisible: true,
+    categoryId: 'cat1'
+  })
+});
+const newProduct = await response.json();
+console.log(newProduct);`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="product-update">
+                  <AccordionTrigger>Обновление товара</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        Обновление существующего товара.
+                      </p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          PATCH /api/catalog/products/:id
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Параметры запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`id - уникальный идентификатор товара`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Тело запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`{
+  "name": "string",
+  "sku": "string",
+  "description": "string",
+  "wholesalePrice": 0,
+  "retailPrice": 0,
+  "stock": 0,
+  "isVisible": true,
+  "categoryId": "string",
+  "options": [
+    {
+      "id": "string", // если обновляем существующую опцию
+      "name": "string",
+      "type": "single" | "multiple",
+      "values": [
+        {
+          "id": "string", // если обновляем существующее значение
+          "value": "string",
+          "price": 0
+        }
+      ]
+    }
+  ]
+}`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Пример ответа:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`{
+  "id": "string",
+  "name": "string",
+  "slug": "string",
+  "sku": "string",
+  "description": "string",
+  "wholesalePrice": 0,
+  "retailPrice": 0,
+  "stock": 0,
+  "isVisible": true,
+  "categoryId": "string",
+  "updatedAt": "2024-01-01T00:00:00.000Z"
+}`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Обновление цены и количества товара
+const response = await fetch('/api/catalog/products/prod1', {
+  method: 'PATCH',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    retailPrice: 1200,
+    stock: 15
+  })
+});
+const updatedProduct = await response.json();
+console.log(updatedProduct);`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="product-delete">
+                  <AccordionTrigger>Удаление товара</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">Удаление товара из каталога.</p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          DELETE /api/catalog/products/:id
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Параметры запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`id - уникальный идентификатор товара`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Пример ответа:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`{
+  "success": true,
+  "message": "Товар успешно удален"
+}`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Удаление товара
+const response = await fetch('/api/catalog/products/prod1', {
+  method: 'DELETE'
+});
+const result = await response.json();
+console.log(result);`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="public-products-list">
+                  <AccordionTrigger>
+                    Публичное API: Получение списка товаров
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        Публичный API для получения списка доступных товаров.
+                      </p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          GET /api/public/catalog/products
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Параметры запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`page - номер страницы (по умолчанию 1)
+limit - количество товаров на странице (по умолчанию 20)
+categoryId - ID категории для фильтрации
+search - поисковый запрос для фильтрации по названию, артикулу и описанию
+includeSubcategories - включить товары из подкатегорий (true/false)`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Примечания:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`Возвращает только видимые товары с количеством > 0`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Получение товаров из категории с ID "cat1" и включением товаров из подкатегорий
+const response = await fetch('/api/public/catalog/products?categoryId=cat1&includeSubcategories=true');
+const data = await response.json();
+console.log(data.products);
+console.log(data.pagination);`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="public-product-detail">
+                  <AccordionTrigger>
+                    Публичное API: Получение товара по ID
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        Публичный API для получения подробной информации о
+                        товаре по его ID.
+                      </p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          GET /api/public/catalog/products/:id
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Параметры запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`id - уникальный идентификатор товара`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Примечания:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`Возвращает только видимые товары`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Получение товара с ID "prod1"
+const response = await fetch('/api/public/catalog/products/prod1');
+const product = await response.json();
+console.log(product);`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="public-product-slug">
+                  <AccordionTrigger>
+                    Публичное API: Получение товара по slug
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        Публичный API для получения подробной информации о
+                        товаре по его slug.
+                      </p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          GET /api/public/catalog/products/slug/:slug
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Параметры запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`slug - уникальный текстовый идентификатор товара`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Примечания:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`Возвращает только видимые товары`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Получение товара по slug "krasnyj-chajnik"
+const response = await fetch('/api/public/catalog/products/slug/krasnyj-chajnik');
+const product = await response.json();
+console.log(product);`}
+                        </pre>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="public-product-related">
+                  <AccordionTrigger>
+                    Публичное API: Получение связанных товаров
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        Публичный API для получения связанных и сопутствующих
+                        товаров.
+                      </p>
+                      <h4 className="font-semibold">Запрос:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <p className="font-mono text-xs">
+                          GET /api/public/catalog/products/related/:id
+                        </p>
+                      </div>
+                      <h4 className="font-semibold mt-2">Параметры запроса:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`id - уникальный идентификатор товара, для которого нужно получить связанные товары`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Примечания:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`Возвращает только видимые связанные товары с количеством > 0`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">Пример ответа:</h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`{
+  "related": [
+    {
+      "id": "string",
+      "name": "string",
+      "slug": "string",
+      "sku": "string",
+      "retailPrice": 0,
+      "categoryId": "string",
+      "category": {
+        "id": "string",
+        "name": "string",
+        "slug": "string"
+      },
+      "mainImage": "string"
+    }
+  ],
+  "complementary": [
+    {
+      "id": "string",
+      "name": "string",
+      "slug": "string",
+      "sku": "string",
+      "retailPrice": 0,
+      "categoryId": "string",
+      "category": {
+        "id": "string",
+        "name": "string",
+        "slug": "string"
+      },
+      "mainImage": "string"
+    }
+  ]
+}`}
+                        </pre>
+                      </div>
+                      <h4 className="font-semibold mt-2">
+                        Пример использования:
+                      </h4>
+                      <div className="bg-muted p-2 rounded-md">
+                        <pre className="font-mono text-xs whitespace-pre-wrap">
+                          {`// Получение связанных товаров для товара с ID "prod1"
+const response = await fetch('/api/public/catalog/products/related/prod1');
+const { related, complementary } = await response.json();
+console.log('Связанные товары:', related);
+console.log('Сопутствующие товары:', complementary);`}
                         </pre>
                       </div>
                     </div>

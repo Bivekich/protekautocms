@@ -1,57 +1,45 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
-// Модель для пользователей (менеджеров)
 model User {
-  id              String    @id @default(cuid())
-  name            String
-  email           String    @unique
-  password        String
-  role            Role      @default(MANAGER)
-  avatarUrl       String?
-  twoFactorEnabled Boolean   @default(false)
+  id               String     @id @default(cuid())
+  name             String
+  email            String     @unique
+  password         String
+  role             UserRole   @default(MANAGER)
+  avatarUrl        String?
+  twoFactorEnabled Boolean    @default(false)
   twoFactorSecret  String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  auditLogs       AuditLog[] @relation("UserAuditLogs")
-  actionsAgainst  AuditLog[] @relation("TargetUserAuditLogs")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  actionsAgainst   AuditLog[] @relation("TargetUserAuditLogs")
+  auditLogs        AuditLog[] @relation("UserAuditLogs")
 }
 
-// Роли пользователей
-enum Role {
-  ADMIN
-  MANAGER
-}
-
-// Модель для аудита действий
 model AuditLog {
-  id          String    @id @default(cuid())
-  action      String
-  details     String?
-  userId      String
-  user        User      @relation("UserAuditLogs", fields: [userId], references: [id])
-  targetId    String?
-  targetUser  User?     @relation("TargetUserAuditLogs", fields: [targetId], references: [id])
-  createdAt   DateTime  @default(now())
+  id         String   @id @default(cuid())
+  action     String
+  details    String?
+  userId     String
+  targetId   String?
+  productId  String?
+  targetType String?  // Тип целевого объекта: "user", "product", "category", и т.д.
+  createdAt  DateTime @default(now())
+  targetUser User?    @relation("TargetUserAuditLogs", fields: [targetId], references: [id])
+  user       User     @relation("UserAuditLogs", fields: [userId], references: [id])
 
   @@index([userId])
   @@index([targetId])
+  @@index([productId])
 }
 
-// Модель для сессий аутентификации
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
@@ -59,126 +47,149 @@ model Session {
   expires      DateTime
 }
 
-// Модель для настроек системы
 model Settings {
-  id           String   @id @default(cuid())
-  key          String   @unique
-  value        String
-  description  String?
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
 }
 
-// Модель для страниц сайта
 model Page {
-  id           String   @id @default(cuid())
-  slug         String   @unique
-  title        String
-  description  String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  sections     PageSection[]
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  description String?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  sections    PageSection[]
 }
 
-// Модель для секций страниц
 model PageSection {
-  id           String   @id @default(cuid())
-  pageId       String
-  page         Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  type         String   // тип секции: contacts, map, text, gallery и т.д.
-  order        Int      // порядок отображения на странице
-  content      Json     // содержимое секции в формате JSON
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(cuid())
+  pageId    String
+  type      String
+  order     Int
+  content   Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([pageId])
 }
 
-// Модель для медиа-файлов
 model Media {
-  id           String   @id @default(cuid())
-  name         String   // Имя файла
-  url          String   // URL файла
-  type         String   // Тип файла (image, video, etc.)
-  size         Int      // Размер файла в байтах
-  mimeType     String   // MIME-тип файла
-  alt          String?  // Альтернативный текст для изображений
-  description  String?  // Описание файла
-  userId       String   // ID пользователя, загрузившего файл
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  type        String
+  size        Int
+  mimeType    String
+  alt         String?
+  description String?
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([userId])
   @@index([type])
 }
 
-// Модель для категорий товаров
 model Category {
-  id                       String    @id @default(cuid())
-  name                     String
-  slug                     String    @unique
-  description              String?
-  parentId                 String?
-  parent                   Category? @relation("CategoryToSubcategory", fields: [parentId], references: [id], onDelete: SetNull)
-  subcategories            Category[] @relation("CategoryToSubcategory")
-  level                    Int       @default(1)
-  order                    Int       @default(0)
-  isVisible                Boolean   @default(true)
-  includeSubcategoryProducts Boolean  @default(false)
-  imageUrl                 String?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
-  products                 Product[]
+  id                         String     @id @default(cuid())
+  name                       String
+  slug                       String     @unique
+  description                String?
+  parentId                   String?
+  level                      Int        @default(1)
+  order                      Int        @default(0)
+  isVisible                  Boolean    @default(true)
+  includeSubcategoryProducts Boolean    @default(false)
+  imageUrl                   String?
+  createdAt                  DateTime   @default(now())
+  updatedAt                  DateTime   @updatedAt
+  parent                     Category?  @relation("CategoryToSubcategory", fields: [parentId], references: [id])
+  subcategories              Category[] @relation("CategoryToSubcategory")
+  products                   Product[]
 
   @@index([parentId])
 }
 
-// Модель для товаров
 model Product {
-  id              String    @id @default(cuid())
+  id              String                  @id @default(cuid())
   name            String
-  slug            String    @unique
-  sku             String    @unique
+  slug            String                  @unique
+  sku             String                  @unique
   description     String?
   wholesalePrice  Float
   retailPrice     Float
-  stock           Int       @default(0)
-  isVisible       Boolean   @default(true)
+  stock           Int                     @default(0)
+  isVisible       Boolean                 @default(true)
   categoryId      String?
-  category        Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  images          ProductImage[]
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  category        Category?               @relation(fields: [categoryId], references: [id])
   characteristics ProductCharacteristic[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  images          ProductImage[]
+  options         ProductOption[]
 
   @@index([categoryId])
   @@index([sku])
 }
 
-// Модель для изображений товаров
 model ProductImage {
   id        String   @id @default(cuid())
   url       String
   alt       String?
   order     Int      @default(0)
   productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
 }
 
-// Модель для характеристик товаров
 model ProductCharacteristic {
   id        String   @id @default(cuid())
   name      String
   value     String
   productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
+}
+
+model ProductOption {
+  id        String               @id @default(cuid())
+  name      String
+  type      String
+  productId String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  product   Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values    ProductOptionValue[]
+
+  @@index([productId])
+}
+
+model ProductOptionValue {
+  id        String        @id @default(cuid())
+  value     String
+  price     Float         @default(0)
+  optionId  String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  option    ProductOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@index([optionId])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
 }

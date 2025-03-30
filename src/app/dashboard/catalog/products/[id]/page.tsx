@@ -335,6 +335,17 @@ export default function EditProductPage() {
         stock: product.stock,
         isVisible: product.visible,
         categoryId: product.categories[0] || null,
+        // Добавляем опции товара
+        options: product.options.map((option) => ({
+          id: option.id,
+          name: option.name,
+          type: option.type,
+          values: option.values.map((value) => ({
+            id: value.id,
+            value: value.value,
+            price: value.price,
+          })),
+        })),
         // Остальные поля
       };
 
@@ -409,11 +420,11 @@ export default function EditProductPage() {
       </div>
 
       {/* Основной контент в виде двух колонок */}
-      <div className="flex-1 overflow-hidden py-6 flex gap-6">
+      <div className="flex-1 overflow-hidden py-4 flex gap-4">
         {/* Левая колонка (2/3) - основная информация */}
-        <div className="w-2/3 overflow-y-auto pr-6">
+        <div className="w-2/3 overflow-y-auto pr-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between py-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <InfoIcon className="h-5 w-5 text-muted-foreground" />
                 Основная информация
@@ -427,9 +438,9 @@ export default function EditProductPage() {
             </CardContent>
           </Card>
 
-          <div className="mt-6">
+          <div className="mt-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-row items-center justify-between py-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <ListFilter className="h-5 w-5 text-muted-foreground" />
                   Характеристики
@@ -450,7 +461,7 @@ export default function EditProductPage() {
         {/* Правая колонка (1/3) - настройки и статус */}
         <div className="w-1/3 overflow-y-auto">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between py-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <SettingsIcon className="h-5 w-5 text-muted-foreground" />
                 Настройки
@@ -498,14 +509,15 @@ export default function EditProductPage() {
                   data={productToFormData(product)}
                   categories={categories}
                   onChange={handleSettingsChange}
+                  initialCategoryId={product.categories[0] || null}
                 />
               </div>
             </CardContent>
           </Card>
 
-          <div className="mt-6">
+          <div className="mt-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-row items-center justify-between py-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TagIcon className="h-5 w-5 text-muted-foreground" />
                   Опции товара
@@ -525,15 +537,15 @@ export default function EditProductPage() {
       </div>
 
       {/* Нижний блок - связанные товары */}
-      <div className="mt-6 pb-6">
+      <div className="mt-2 pb-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between py-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <LinkIcon className="h-5 w-5 text-muted-foreground" />
               Связанные товары
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="py-2">
             <ProductFormRelated
               relatedProducts={product.relatedProducts}
               complementaryProducts={product.complementaryProducts}

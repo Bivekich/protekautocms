@@ -234,13 +234,23 @@ export default function ProductFormBasicInfo({
             <Label htmlFor="wholesalePrice">Цена опт</Label>
             <Input
               id="wholesalePrice"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
               value={data.wholesalePrice}
-              onChange={(e) =>
-                handleChange('wholesalePrice', parseFloat(e.target.value) || 0)
-              }
+              onChange={(e) => {
+                // Проверяем введённое значение
+                const inputValue = e.target.value;
+
+                // Если поле пустое, устанавливаем 0
+                if (inputValue === '') {
+                  handleChange('wholesalePrice', 0);
+                  return;
+                }
+
+                // Если ввели число, преобразуем к числу
+                if (/^\d*\.?\d*$/.test(inputValue)) {
+                  handleChange('wholesalePrice', parseFloat(inputValue) || 0);
+                }
+              }}
               required
             />
           </div>
@@ -248,13 +258,23 @@ export default function ProductFormBasicInfo({
             <Label htmlFor="retailPrice">Цена на сайте</Label>
             <Input
               id="retailPrice"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
               value={data.retailPrice}
-              onChange={(e) =>
-                handleChange('retailPrice', parseFloat(e.target.value) || 0)
-              }
+              onChange={(e) => {
+                // Проверяем введённое значение
+                const inputValue = e.target.value;
+
+                // Если поле пустое, устанавливаем 0
+                if (inputValue === '') {
+                  handleChange('retailPrice', 0);
+                  return;
+                }
+
+                // Если ввели число, преобразуем к числу
+                if (/^\d*\.?\d*$/.test(inputValue)) {
+                  handleChange('retailPrice', parseFloat(inputValue) || 0);
+                }
+              }}
               required
             />
           </div>
@@ -265,13 +285,23 @@ export default function ProductFormBasicInfo({
           <Label htmlFor="weight">Вес (кг)</Label>
           <Input
             id="weight"
-            type="number"
-            min="0"
-            step="0.01"
+            type="text"
             value={data.weight}
-            onChange={(e) =>
-              handleChange('weight', parseFloat(e.target.value) || 0)
-            }
+            onChange={(e) => {
+              // Проверяем введённое значение
+              const inputValue = e.target.value;
+
+              // Если поле пустое, устанавливаем 0
+              if (inputValue === '') {
+                handleChange('weight', 0);
+                return;
+              }
+
+              // Если ввели число, преобразуем к числу
+              if (/^\d*\.?\d*$/.test(inputValue)) {
+                handleChange('weight', parseFloat(inputValue) || 0);
+              }
+            }}
           />
         </div>
 
@@ -282,52 +312,67 @@ export default function ProductFormBasicInfo({
             <div>
               <Input
                 placeholder="Длина"
-                type="number"
-                min="0"
-                step="0.1"
+                type="text"
                 value={data.dimensions.length}
-                onChange={(e) =>
-                  onChange({
-                    dimensions: {
-                      ...data.dimensions,
-                      length: parseFloat(e.target.value) || 0,
-                    },
-                  })
-                }
+                onChange={(e) => {
+                  // Проверяем введённое значение
+                  const inputValue = e.target.value;
+
+                  // Если ввели число, преобразуем к числу
+                  if (inputValue === '' || /^\d*\.?\d*$/.test(inputValue)) {
+                    onChange({
+                      dimensions: {
+                        ...data.dimensions,
+                        length:
+                          inputValue === '' ? 0 : parseFloat(inputValue) || 0,
+                      },
+                    });
+                  }
+                }}
               />
             </div>
             <div>
               <Input
                 placeholder="Ширина"
-                type="number"
-                min="0"
-                step="0.1"
+                type="text"
                 value={data.dimensions.width}
-                onChange={(e) =>
-                  onChange({
-                    dimensions: {
-                      ...data.dimensions,
-                      width: parseFloat(e.target.value) || 0,
-                    },
-                  })
-                }
+                onChange={(e) => {
+                  // Проверяем введённое значение
+                  const inputValue = e.target.value;
+
+                  // Если ввели число, преобразуем к числу
+                  if (inputValue === '' || /^\d*\.?\d*$/.test(inputValue)) {
+                    onChange({
+                      dimensions: {
+                        ...data.dimensions,
+                        width:
+                          inputValue === '' ? 0 : parseFloat(inputValue) || 0,
+                      },
+                    });
+                  }
+                }}
               />
             </div>
             <div>
               <Input
                 placeholder="Высота"
-                type="number"
-                min="0"
-                step="0.1"
+                type="text"
                 value={data.dimensions.height}
-                onChange={(e) =>
-                  onChange({
-                    dimensions: {
-                      ...data.dimensions,
-                      height: parseFloat(e.target.value) || 0,
-                    },
-                  })
-                }
+                onChange={(e) => {
+                  // Проверяем введённое значение
+                  const inputValue = e.target.value;
+
+                  // Если ввели число, преобразуем к числу
+                  if (inputValue === '' || /^\d*\.?\d*$/.test(inputValue)) {
+                    onChange({
+                      dimensions: {
+                        ...data.dimensions,
+                        height:
+                          inputValue === '' ? 0 : parseFloat(inputValue) || 0,
+                      },
+                    });
+                  }
+                }}
               />
             </div>
           </div>

@@ -27,7 +27,7 @@ export default function CatalogPage() {
       </div>
 
       {/* Основная часть с содержимым */}
-      <div className="flex-1 h-full overflow-y-auto">
+      <div className="flex-1 h-full overflow-y-auto px-0 pl-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-between items-center border-b pb-2">
             <TabsList>
@@ -40,14 +40,14 @@ export default function CatalogPage() {
             </TabsList>
           </div>
 
-          <TabsContent value="catalog" className="mt-4">
+          <TabsContent value="catalog">
             <CategoryContent
               categoryId={selectedCategory}
               onCategorySelect={handleCategorySelect}
             />
           </TabsContent>
 
-          <TabsContent value="import-export" className="mt-4">
+          <TabsContent value="import-export">
             <ImportExport />
           </TabsContent>
         </Tabs>

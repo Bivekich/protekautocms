@@ -1,0 +1,17 @@
+name: protekcms
+image: node:20-alpine
+dockerfile: timeweb.dockerfile
+env:
+  - name: NODE_ENV
+    value: production
+  - name: DATABASE_URL
+    value: $DATABASE_URL
+  - name: SHADOW_DATABASE_URL
+    value: $SHADOW_DATABASE_URL
+  - name: NEXTAUTH_URL
+    value: $NEXTAUTH_URL
+  - name: NEXTAUTH_SECRET
+    value: $NEXTAUTH_SECRET
+volumes:
+  - name: uploads
+    mount: /app/public/uploads

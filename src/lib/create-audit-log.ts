@@ -5,6 +5,8 @@ interface CreateAuditLogParams {
   details?: string;
   userId: string;
   targetId?: string;
+  productId?: string;
+  targetType?: string;
 }
 
 export const createAuditLog = async ({
@@ -12,6 +14,8 @@ export const createAuditLog = async ({
   details,
   userId,
   targetId,
+  productId,
+  targetType,
 }: CreateAuditLogParams) => {
   try {
     await db.auditLog.create({
@@ -19,7 +23,9 @@ export const createAuditLog = async ({
         action,
         details,
         userId,
-        targetId,
+        targetId: targetType === 'product' ? null : targetId,
+        productId: targetType === 'product' ? targetId : productId,
+        targetType,
       },
     });
   } catch (error) {

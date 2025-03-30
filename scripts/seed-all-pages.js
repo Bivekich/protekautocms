@@ -7,6 +7,7 @@ const scripts = [
   'seed-about-page.js',
   'seed-wholesale-page.js',
   'seed-payment-delivery-page.js',
+  'seed-content-page.js',
 ];
 
 // Функция для запуска скрипта

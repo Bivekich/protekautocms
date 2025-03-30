@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -145,130 +144,132 @@ export default function ProductFormRelated({
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Связанные товары</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {relatedProducts.length > 0 ? (
-            <div className="space-y-2">
-              {relatedProducts.map((productId) => {
-                const product = getProductInfo(productId);
-
-                return (
-                  <div
-                    key={productId}
-                    className="flex items-center justify-between border rounded-md p-2"
-                  >
-                    <div className="flex items-center">
-                      {product.image && (
-                        <div className="w-10 h-10 bg-gray-100 rounded-md overflow-hidden mr-3">
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {product.sku}
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onRemove(productId, 'related')}
-                      className="h-8 w-8 p-0 text-red-600"
-                    >
-                      <X size={16} />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-4 bg-gray-50 rounded-md">
-              <p className="text-sm text-gray-500">Нет связанных товаров</p>
-            </div>
-          )}
+    <div className="grid grid-cols-1 gap-2">
+      <div>
+        <div className="flex justify-between items-center mb-1">
+          <p className="text-sm font-medium">Связанные товары</p>
           <Button
-            variant="outline"
-            className="w-full mt-4"
+            variant="ghost"
+            size="sm"
             onClick={() => handleOpenDialog('related')}
+            className="h-6 px-2 text-xs"
           >
-            <Plus size={16} className="mr-2" />
-            Добавить связанные товары
+            <Plus size={12} className="mr-1" />
+            Добавить
           </Button>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Сопутствующие товары</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {complementaryProducts.length > 0 ? (
-            <div className="space-y-2">
-              {complementaryProducts.map((productId) => {
-                const product = getProductInfo(productId);
-
-                return (
-                  <div
-                    key={productId}
-                    className="flex items-center justify-between border rounded-md p-2"
-                  >
-                    <div className="flex items-center">
-                      {product.image && (
-                        <div className="w-10 h-10 bg-gray-100 rounded-md overflow-hidden mr-3">
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {product.sku}
-                        </div>
+        {relatedProducts.length > 0 ? (
+          <div className="grid gap-1">
+            {relatedProducts.map((productId) => {
+              const product = getProductInfo(productId);
+              return (
+                <div
+                  key={productId}
+                  className="flex items-center justify-between py-1 px-2 border-b border-gray-100 last:border-b-0"
+                >
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    {product.image && (
+                      <div className="w-6 h-6 bg-gray-50 rounded overflow-hidden flex-shrink-0">
+                        <Image
+                          src={product.image}
+                          alt={product.name}
+                          width={24}
+                          height={24}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="overflow-hidden">
+                      <div className="text-xs font-medium truncate">
+                        {product.name}
+                      </div>
+                      <div className="text-[10px] text-gray-500 truncate">
+                        {product.sku}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onRemove(productId, 'complementary')}
-                      className="h-8 w-8 p-0 text-red-600"
-                    >
-                      <X size={16} />
-                    </Button>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-4 bg-gray-50 rounded-md">
-              <p className="text-sm text-gray-500">Нет сопутствующих товаров</p>
-            </div>
-          )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemove(productId, 'related')}
+                    className="h-5 w-5 p-0 text-red-600"
+                  >
+                    <X size={12} />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-1 bg-gray-50 text-[11px] text-gray-500 rounded">
+            Нет связанных товаров
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="flex justify-between items-center mb-1">
+          <p className="text-sm font-medium">Сопутствующие товары</p>
           <Button
-            variant="outline"
-            className="w-full mt-4"
+            variant="ghost"
+            size="sm"
             onClick={() => handleOpenDialog('complementary')}
+            className="h-6 px-2 text-xs"
           >
-            <Plus size={16} className="mr-2" />
-            Добавить сопутствующие товары
+            <Plus size={12} className="mr-1" />
+            Добавить
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+
+        {complementaryProducts.length > 0 ? (
+          <div className="grid gap-1">
+            {complementaryProducts.map((productId) => {
+              const product = getProductInfo(productId);
+              return (
+                <div
+                  key={productId}
+                  className="flex items-center justify-between py-1 px-2 border-b border-gray-100 last:border-b-0"
+                >
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    {product.image && (
+                      <div className="w-6 h-6 bg-gray-50 rounded overflow-hidden flex-shrink-0">
+                        <Image
+                          src={product.image}
+                          alt={product.name}
+                          width={24}
+                          height={24}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="overflow-hidden">
+                      <div className="text-xs font-medium truncate">
+                        {product.name}
+                      </div>
+                      <div className="text-[10px] text-gray-500 truncate">
+                        {product.sku}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemove(productId, 'complementary')}
+                    className="h-5 w-5 p-0 text-red-600"
+                  >
+                    <X size={12} />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-1 bg-gray-50 text-[11px] text-gray-500 rounded">
+            Нет сопутствующих товаров
+          </div>
+        )}
+      </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-lg">

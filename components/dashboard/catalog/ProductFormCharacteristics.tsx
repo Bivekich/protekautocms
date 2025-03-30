@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -102,56 +101,57 @@ export default function ProductFormCharacteristics({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {characteristics.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-1">
           {characteristics.map((characteristic) => (
-            <Card key={characteristic.id}>
-              <CardHeader className="py-3">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-base">
-                    {characteristic.name}
-                  </CardTitle>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditCharacteristic(characteristic)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit size={16} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        onChange(
-                          characteristics.filter(
-                            (c) => c.id !== characteristic.id
-                          )
-                        )
-                      }
-                      className="h-8 w-8 p-0 text-red-600"
-                    >
-                      <Trash size={16} />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm">{characteristic.value}</div>
-              </CardContent>
-            </Card>
+            <div
+              key={characteristic.id}
+              className="flex items-center justify-between py-1.5 px-3 rounded hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+            >
+              <div className="flex flex-col">
+                <span className="font-medium text-sm">
+                  {characteristic.name}
+                </span>
+                <span className="text-xs text-gray-600">
+                  {characteristic.value}
+                </span>
+              </div>
+              <div className="flex space-x-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditCharacteristic(characteristic)}
+                  className="h-6 w-6 p-0"
+                >
+                  <Edit size={14} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    onChange(
+                      characteristics.filter((c) => c.id !== characteristic.id)
+                    )
+                  }
+                  className="h-6 w-6 p-0 text-red-600"
+                >
+                  <Trash size={14} />
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 bg-gray-50 rounded-md">
-          <p className="text-gray-500 mb-4">У товара пока нет характеристик</p>
+        <div className="text-center py-4 bg-gray-50 rounded-md">
+          <p className="text-gray-500 mb-2 text-sm">
+            У товара пока нет характеристик
+          </p>
         </div>
       )}
 
-      <Button onClick={handleAddCharacteristic} className="w-full">
-        <Plus size={16} className="mr-2" />
+      <Button onClick={handleAddCharacteristic} className="w-full h-8 text-xs">
+        <Plus size={14} className="mr-1" />
         Добавить характеристику
       </Button>
 
@@ -189,7 +189,7 @@ export default function ProductFormCharacteristics({
                   {filteredCharacteristics.map((char) => (
                     <div
                       key={char}
-                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
                       onClick={() => handleSelectPredefined(char)}
                     >
                       {char}

@@ -319,25 +319,54 @@ export default function CategoryContent({
   const hasProducts = true;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="mb-4">
+    <div className="h-full flex flex-col pt-0 pb-0">
+      <div className="mb-1">
         {/* Хлебные крошки и заголовок категории */}
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-xl font-semibold">
-              {isAllCategory ? 'Все товары' : category?.name}
-              {category?.includeSubcategoryProducts &&
-                subcategories.length > 0 && (
-                  <span className="ml-2 text-sm font-normal text-gray-500">
-                    (Включая товары из подкатегорий)
-                  </span>
-                )}
-            </h2>
+        <div className="flex justify-between items-center mb-1">
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">
+                {isAllCategory ? 'Все товары' : category?.name}
+                {category?.includeSubcategoryProducts &&
+                  subcategories.length > 0 && (
+                    <span className="ml-1 text-xs font-normal text-gray-500">
+                      (Включая товары из подкатегорий)
+                    </span>
+                  )}
+              </h2>
+
+              {/* Поиск */}
+              <div className="ml-auto mr-4 flex-1 max-w-md">
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Поиск товаров..."
+                      className="pl-10"
+                      value={searchQuery}
+                      onChange={handleSearchChange}
+                    />
+                  </div>
+                </form>
+              </div>
+
+              {/* Действия категории */}
+              <div className="flex space-x-2">
+                <Button variant="outline" onClick={openAddSubcategoryDialog}>
+                  <Folder className="mr-2 h-4 w-4" />
+                  Добавить подкатегорию
+                </Button>
+                <Button onClick={openAddProductPage}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Добавить товар
+                </Button>
+              </div>
+            </div>
             {category?.description && !isAllCategory && (
-              <p className="text-gray-500 mt-1">{category.description}</p>
+              <p className="text-gray-500 mt-0">{category.description}</p>
             )}
             {!isAllCategory && subcategories.length > 0 && (
-              <div className="mt-2 flex items-center">
+              <div className="mt-1 flex items-center">
                 <Switch
                   id="includeSubcategoryProducts"
                   checked={!!category?.includeSubcategoryProducts}
@@ -353,47 +382,20 @@ export default function CategoryContent({
               </div>
             )}
           </div>
-
-          {/* Действия категории */}
-          <div className="flex space-x-2">
-            <Button variant="outline" onClick={openAddSubcategoryDialog}>
-              <Folder className="mr-2 h-4 w-4" />
-              Добавить подкатегорию
-            </Button>
-            <Button onClick={openAddProductPage}>
-              <Plus className="mr-2 h-4 w-4" />
-              Добавить товар
-            </Button>
-          </div>
-        </div>
-
-        {/* Поиск */}
-        <div className="mb-6">
-          <form onSubmit={handleSearchSubmit}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Поиск товаров..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={handleSearchChange}
-              />
-            </div>
-          </form>
         </div>
       </div>
 
       {/* Подкатегории */}
       {hasSubcategories && (
-        <div className="mb-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-3">
+        <div className="mb-3">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
             Подкатегории
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {subcategories.map((subcat) => (
               <div
                 key={subcat.id}
-                className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
+                className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
                   if (onCategorySelect) {
@@ -414,7 +416,10 @@ export default function CategoryContent({
       )}
 
       {/* Список товаров */}
-      <div className="flex-1 overflow-y-auto" data-testid="products-list">
+      <div
+        className="flex-1 overflow-y-auto min-h-0"
+        data-testid="products-list"
+      >
         <ProductsList
           categoryId={categoryId}
           searchQuery={searchQuery}

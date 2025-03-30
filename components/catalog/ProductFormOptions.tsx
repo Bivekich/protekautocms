@@ -147,15 +147,15 @@ export default function ProductFormOptions({
                   Тип выбора:{' '}
                   {option.type === 'multiple' ? 'Множественный' : 'Одиночный'}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {option.values.map((value) => (
                     <div
                       key={value.id}
-                      className="flex justify-between items-center border rounded-md p-2"
+                      className="flex flex-col border rounded-md p-2"
                     >
-                      <span>{value.value}</span>
+                      <span className="font-medium">{value.value}</span>
                       {value.price > 0 && (
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-600 mt-1">
                           +{value.price} ₽
                         </span>
                       )}

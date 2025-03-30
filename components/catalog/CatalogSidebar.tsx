@@ -423,7 +423,7 @@ export default function CatalogSidebar({
 
         {/* Подкатегории рендерятся только если категория развернута */}
         {hasSubcategories && isExpanded && (
-          <div className="subcategories">
+          <div className="subcategories ml-4">
             {subcategories.map((subcat: CategoryWithSubcategories) =>
               renderCategory(subcat)
             )}

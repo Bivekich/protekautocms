@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Edit, Trash2, Loader2 } from 'lucide-react';
+import { Edit, Trash2, Loader2, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -20,7 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Filter } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -59,7 +63,6 @@ export default function ProductsList({
   );
   const [allSelected, setAllSelected] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
-  const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
@@ -276,11 +279,6 @@ export default function ProductsList({
     }
   };
 
-  // Обработчик переключения фильтров
-  const toggleFilters = () => {
-    setShowFilters(!showFilters);
-  };
-
   // Обработчик изменения страницы
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -388,72 +386,73 @@ export default function ProductsList({
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={toggleFilters}>
-            <Filter size={16} className="mr-2" />
-            Фильтры{' '}
-            {hasActiveFilters && (
-              <span className="ml-1 rounded-full bg-blue-100 text-blue-600 w-5 h-5 flex items-center justify-center text-xs">
-                !
-              </span>
-            )}
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Filter size={16} className="mr-2" />
+                Фильтры{' '}
+                {hasActiveFilters && (
+                  <span className="ml-1 rounded-full bg-blue-100 text-blue-600 w-5 h-5 flex items-center justify-center text-xs">
+                    !
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-3">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-gray-500 mb-1 block">
+                    Наличие
+                  </label>
+                  <Select value={stockFilter} onValueChange={setStockFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Все" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все</SelectItem>
+                      <SelectItem value="instock">В наличии</SelectItem>
+                      <SelectItem value="outofstock">Нет в наличии</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 mb-1 block">
+                    Видимость
+                  </label>
+                  <Select
+                    value={visibilityFilter}
+                    onValueChange={setVisibilityFilter}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Все" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все</SelectItem>
+                      <SelectItem value="visible">Видимые</SelectItem>
+                      <SelectItem value="hidden">Скрытые</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <Button variant="outline" size="sm" onClick={resetFilters}>
+                    Сбросить
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={applyFilters}
+                    disabled={isApplyingFilters}
+                  >
+                    {isApplyingFilters ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Применить
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
-
-      {showFilters && (
-        <div className="bg-gray-50 p-4 rounded-md mb-4">
-          <div className="text-sm font-medium mb-2">Фильтры</div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm text-gray-500 mb-1 block">
-                Наличие
-              </label>
-              <Select value={stockFilter} onValueChange={setStockFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Все" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все</SelectItem>
-                  <SelectItem value="instock">В наличии</SelectItem>
-                  <SelectItem value="outofstock">Нет в наличии</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm text-gray-500 mb-1 block">
-                Видимость
-              </label>
-              <Select
-                value={visibilityFilter}
-                onValueChange={setVisibilityFilter}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Все" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все</SelectItem>
-                  <SelectItem value="visible">Видимые</SelectItem>
-                  <SelectItem value="hidden">Скрытые</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={applyFilters}
-                disabled={isApplyingFilters}
-              >
-                {isApplyingFilters ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Применить фильтры
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isLoading && products.length > 0 && (
         <div className="flex justify-center my-4">

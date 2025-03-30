@@ -5,6 +5,28 @@ import { slugify } from '@/lib/utils';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Prisma } from '@prisma/client';
+import { createAuditLog } from '@/lib/create-audit-log';
+
+// Функция для рекурсивного получения всех подкатегорий
+async function getAllSubcategories(parentId: string): Promise<string[]> {
+  const directChildren = await prisma.category.findMany({
+    where: { parentId },
+    select: { id: true },
+  });
+
+  if (directChildren.length === 0) return [];
+
+  const childIds = directChildren.map((cat) => cat.id);
+  let allDescendants: string[] = [...childIds];
+
+  // Рекурсивно получаем подкатегории для каждой дочерней категории
+  for (const childId of childIds) {
+    const descendants = await getAllSubcategories(childId);
+    allDescendants = [...allDescendants, ...descendants];
+  }
+
+  return allDescendants;
+}
 
 // Схема валидации для создания товара
 const createProductSchema = z.object({
@@ -45,6 +67,29 @@ const createProductSchema = z.object({
       })
     )
     .optional(),
+  options: z
+    .array(
+      z.object({
+        name: z.string().min(1, 'Название опции обязательно'),
+        type: z.enum(['single', 'multiple'], {
+          errorMap: () => ({
+            message: 'Тип опции должен быть single или multiple',
+          }),
+        }),
+        values: z
+          .array(
+            z.object({
+              value: z.string().min(1, 'Значение опции обязательно'),
+              price: z
+                .number()
+                .min(0, 'Цена не может быть отрицательной')
+                .default(0),
+            })
+          )
+          .min(1, 'Опция должна иметь хотя бы одно значение'),
+      })
+    )
+    .optional(),
 });
 
 // GET /api/catalog/products - получение списка товаров
@@ -69,27 +114,13 @@ export async function GET(request: NextRequest) {
     if (categoryId) {
       // Если передан параметр включения подкатегорий, используем его напрямую
       if (includeSubcategories) {
-        // Получаем все подкатегории текущей категории
-        const subcategories = await prisma.category.findMany({
-          where: {
-            parentId: categoryId,
-          },
-          select: { id: true },
-        });
+        // Получаем все подкатегории текущей категории рекурсивно
+        const allSubcategoryIds = await getAllSubcategories(categoryId);
 
-        // Если у категории есть подкатегории
-        if (subcategories.length > 0) {
-          // Получаем ID всех подкатегорий
-          const subcategoryIds = subcategories.map((cat) => cat.id);
-
-          // Включаем товары из текущей категории и всех подкатегорий
-          where.categoryId = {
-            in: [categoryId, ...subcategoryIds],
-          };
-        } else {
-          // Если подкатегорий нет, фильтруем только по текущей категории
-          where.categoryId = categoryId;
-        }
+        // Включаем товары из текущей категории и всех подкатегорий
+        where.categoryId = {
+          in: [categoryId, ...allSubcategoryIds],
+        };
       } else {
         // Если параметр не передан, проверяем настройки категории
         const category = await prisma.category.findUnique({
@@ -98,27 +129,13 @@ export async function GET(request: NextRequest) {
         });
 
         if (category?.includeSubcategoryProducts) {
-          // Получаем все подкатегории текущей категории
-          const subcategories = await prisma.category.findMany({
-            where: {
-              parentId: categoryId,
-            },
-            select: { id: true },
-          });
+          // Получаем все подкатегории текущей категории рекурсивно
+          const allSubcategoryIds = await getAllSubcategories(categoryId);
 
-          // Если у категории есть подкатегории и включен флаг includeSubcategoryProducts
-          if (subcategories.length > 0) {
-            // Получаем ID всех подкатегорий
-            const subcategoryIds = subcategories.map((cat) => cat.id);
-
-            // Включаем товары из текущей категории и всех подкатегорий
-            where.categoryId = {
-              in: [categoryId, ...subcategoryIds],
-            };
-          } else {
-            // Если подкатегорий нет, фильтруем только по текущей категории
-            where.categoryId = categoryId;
-          }
+          // Включаем товары из текущей категории и всех подкатегорий
+          where.categoryId = {
+            in: [categoryId, ...allSubcategoryIds],
+          };
         } else {
           // Если флаг не включен или категория не найдена, фильтруем только по текущей категории
           where.categoryId = categoryId;
@@ -316,13 +333,38 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Добавление опций, если они предоставлены
+    if (validatedData.options && validatedData.options.length > 0) {
+      for (const option of validatedData.options) {
+        // Создаем опцию
+        const createdOption = await prisma.productOption.create({
+          data: {
+            name: option.name,
+            type: option.type,
+            productId: product.id,
+          },
+        });
+
+        // Создаем значения для опции
+        if (option.values && option.values.length > 0) {
+          await prisma.productOptionValue.createMany({
+            data: option.values.map((val) => ({
+              value: val.value,
+              price: val.price,
+              optionId: createdOption.id,
+            })),
+          });
+        }
+      }
+    }
+
     // Запись в аудит
-    await prisma.auditLog.create({
-      data: {
-        action: 'CREATE_PRODUCT',
-        details: `Создан товар: ${product.name} (${product.sku})`,
-        userId: session.user.id,
-      },
+    await createAuditLog({
+      action: 'CREATE',
+      details: `Создан товар: ${product.name} (${product.sku})`,
+      userId: session.user.id,
+      targetId: product.id,
+      targetType: 'product',
     });
 
     // Получение созданного товара со всеми связанными данными

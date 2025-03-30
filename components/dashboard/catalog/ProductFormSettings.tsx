@@ -22,6 +22,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Info } from 'lucide-react';
 import { ProductFormData } from './ProductForm';
+import ProductHistoryDialog from '../../catalog/ProductHistoryDialog';
 
 type ProductFormSettingsProps = {
   data: ProductFormData;
@@ -40,6 +41,7 @@ export default function ProductFormSettings({
 }: ProductFormSettingsProps) {
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
   // Обработчик изменения полей
   const handleChange = (
@@ -297,12 +299,25 @@ export default function ProductFormSettings({
               <span className="text-gray-500">Создал:</span>
               <span>Администратор</span>
             </div>
-            <Button variant="link" className="p-0 h-auto text-blue-600">
+            <Button
+              variant="link"
+              className="p-0 h-auto text-blue-600"
+              onClick={() => setShowHistoryDialog(true)}
+            >
               Показать историю изменений
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Диалог истории изменений */}
+      {data.id && (
+        <ProductHistoryDialog
+          open={showHistoryDialog}
+          onOpenChange={setShowHistoryDialog}
+          productId={data.id}
+        />
+      )}
     </div>
   );
 }
