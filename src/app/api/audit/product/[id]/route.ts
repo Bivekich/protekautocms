@@ -7,8 +7,9 @@ import { getCurrentUser } from '@/lib/session';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await props.params;
   try {
     const currentUser = await getCurrentUser();
 
@@ -16,15 +17,13 @@ export async function GET(
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
     }
 
-    const productId = await params.id;
-
     // Получаем записи аудита, связанные с продуктом (по productId или targetId с targetType='product')
     const auditLogs = await db.auditLog.findMany({
       where: {
         OR: [
-          { productId: productId },
+          { productId: id },
           {
-            targetId: productId,
+            targetId: id,
             targetType: 'product',
           },
         ],

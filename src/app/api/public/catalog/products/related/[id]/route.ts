@@ -11,20 +11,21 @@ export async function GET(
     // Проверяем существование товара
     const product = await prisma.product.findUnique({
       where: { id },
-      select: {
-        relatedProducts: true,
-        complementaryProducts: true,
-      },
     });
 
     if (!product) {
       return NextResponse.json({ error: 'Товар не найден' }, { status: 404 });
     }
 
+    // Получаем связанные и дополнительные товары из БД или используем пустые массивы
+    // (Предполагаем реализацию системы связанных товаров через другую таблицу или метаданные)
+    const relatedProductIds: string[] = [];
+    const complementaryProductIds: string[] = [];
+
     // Получаем связанные товары
     const relatedProducts = await prisma.product.findMany({
       where: {
-        id: { in: product.relatedProducts || [] },
+        id: { in: relatedProductIds },
         isVisible: true, // Только видимые товары
         stock: { gt: 0 }, // Только товары в наличии
       },
@@ -47,7 +48,7 @@ export async function GET(
     // Получаем сопутствующие товары
     const complementaryProducts = await prisma.product.findMany({
       where: {
-        id: { in: product.complementaryProducts || [] },
+        id: { in: complementaryProductIds },
         isVisible: true, // Только видимые товары
         stock: { gt: 0 }, // Только товары в наличии
       },

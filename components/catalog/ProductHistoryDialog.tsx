@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -53,15 +53,8 @@ export default function ProductHistoryDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Получение истории изменений при открытии диалога
-  useEffect(() => {
-    if (open && productId) {
-      fetchHistory();
-    }
-  }, [open, productId]);
-
-  // Функция для получения истории изменений
-  const fetchHistory = async () => {
+  // Функция для получения истории изменений - обернута в useCallback
+  const fetchHistory = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -80,7 +73,14 @@ export default function ProductHistoryDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [productId]);
+
+  // Получение истории изменений при открытии диалога
+  useEffect(() => {
+    if (open && productId) {
+      fetchHistory();
+    }
+  }, [open, productId, fetchHistory]);
 
   // Функция для форматирования даты
   const formatDate = (dateString: string) => {

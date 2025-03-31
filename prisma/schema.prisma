@@ -29,9 +29,9 @@ model AuditLog {
   details    String?
   userId     String
   targetId   String?
-  productId  String?
-  targetType String?  // Тип целевого объекта: "user", "product", "category", и т.д.
   createdAt  DateTime @default(now())
+  productId  String?
+  targetType String?
   targetUser User?    @relation("TargetUserAuditLogs", fields: [targetId], references: [id])
   user       User     @relation("UserAuditLogs", fields: [userId], references: [id])
 
