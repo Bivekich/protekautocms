@@ -4,6 +4,10 @@ FROM node:20-alpine AS base
 FROM base AS deps
 WORKDIR /app
 
+# Копируем сначала только файлы Prisma
+COPY prisma ./prisma/
+
+# Копируем package.json и устанавливаем зависимости
 COPY package.json package-lock.json ./
 RUN npm install --legacy-peer-deps
 
@@ -11,6 +15,7 @@ RUN npm install --legacy-peer-deps
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/prisma ./prisma
 COPY . .
 
 # Генерация Prisma клиента
