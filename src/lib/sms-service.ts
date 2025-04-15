@@ -1,20 +1,7 @@
-import SmsAero from 'smsaero-api-v2';
-
 // Конфигурация SMS Aero
 const EMAIL = process.env.SMSAERO_EMAIL;
 const API_KEY = process.env.SMSAERO_API_KEY;
 const SIGN = process.env.SMSAERO_SIGN || 'SMS Aero';
-
-// Инициализация клиента SMS Aero
-let smsAero: SmsAero | null = null;
-
-if (EMAIL && API_KEY) {
-  try {
-    smsAero = new SmsAero(EMAIL, API_KEY);
-  } catch (error) {
-    console.error('Ошибка инициализации SMS Aero:', error);
-  }
-}
 
 // Функция для генерации случайного кода
 export function generateVerificationCode(length = 4): string {
@@ -34,7 +21,7 @@ export async function sendSmsCode(
     }
 
     // Проверяем настройки SMS-сервиса
-    if (!smsAero || !EMAIL || !API_KEY) {
+    if (!EMAIL || !API_KEY) {
       console.error('SMS сервис не настроен');
       return false;
     }
@@ -52,19 +39,35 @@ export async function sendSmsCode(
       `Отправка SMS на номер ${formattedPhone}, текст: Ваш код: ${code}`
     );
 
-    // Отправляем SMS
-    const response = await smsAero.send(
-      formattedPhone,
-      `Ваш код: ${code}`,
-      SIGN
-    );
+    // Базовая аутентификация (email:api_key в base64)
+    const authString = Buffer.from(`${EMAIL}:${API_KEY}`).toString('base64');
 
-    if (response && response.success) {
-      console.log('SMS отправлено успешно:', response);
+    // Формируем URL и параметры запроса
+    const url = 'https://gate.smsaero.ru/v2/sms/send';
+    const params = new URLSearchParams({
+      number: formattedPhone,
+      text: `Ваш код: ${code}`,
+      sign: SIGN,
+    });
+
+    // Отправляем SMS через API
+    const response = await fetch(`${url}?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Basic ${authString}`,
+        Accept: 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    console.log('SMS API response:', data);
+
+    if (response.ok && data.success) {
+      console.log('SMS отправлено успешно');
       return true;
     }
 
-    console.error('Ошибка отправки SMS:', response);
+    console.error('Ошибка отправки SMS:', data);
     return false;
   } catch (error) {
     console.error('SMS send error:', error);
