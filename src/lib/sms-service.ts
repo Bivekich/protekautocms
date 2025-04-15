@@ -39,8 +39,18 @@ export async function sendSmsCode(
       return false;
     }
 
-    // Форматируем телефон (убираем +7 и оставляем только цифры)
-    const formattedPhone = phone.replace(/\D/g, '').replace(/^7/, '');
+    // Форматируем телефон (убираем всё кроме цифр)
+    const formattedPhone = phone.replace(/\D/g, '');
+
+    // Проверяем что номер не пустой
+    if (!formattedPhone || formattedPhone.length < 10) {
+      console.error('Некорректный номер телефона:', phone);
+      return false;
+    }
+
+    console.log(
+      `Отправка SMS на номер ${formattedPhone}, текст: Ваш код: ${code}`
+    );
 
     // Отправляем SMS
     const response = await smsAero.send(
@@ -50,6 +60,7 @@ export async function sendSmsCode(
     );
 
     if (response && response.success) {
+      console.log('SMS отправлено успешно:', response);
       return true;
     }
 
