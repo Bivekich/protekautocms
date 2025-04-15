@@ -7,6 +7,45 @@ import { authOptions } from '@/lib/auth';
 import { Prisma } from '@prisma/client';
 import { createAuditLog } from '@/lib/create-audit-log';
 
+// Типы для продуктов с категориями и изображениями
+interface ProductCategoryType {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  parent?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
+interface ProductImageType {
+  id: string;
+  url: string;
+  alt: string | null;
+  order: number;
+  productId: string;
+}
+
+interface ProductWithRelations {
+  id: string;
+  name: string;
+  slug: string;
+  sku: string;
+  description: string | null;
+  wholesalePrice: number;
+  retailPrice: number;
+  stock: number;
+  categoryId: string | null;
+  isVisible: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  category: ProductCategoryType | null;
+  images: ProductImageType[];
+  characteristics?: Array<{ name: string; value: string }>;
+}
+
 // Функция для рекурсивного получения всех подкатегорий
 async function getAllSubcategories(parentId: string): Promise<string[]> {
   const directChildren = await prisma.category.findMany({
@@ -16,7 +55,7 @@ async function getAllSubcategories(parentId: string): Promise<string[]> {
 
   if (directChildren.length === 0) return [];
 
-  const childIds = directChildren.map((cat) => cat.id);
+  const childIds = directChildren.map((cat: { id: string }) => cat.id);
   let allDescendants: string[] = [...childIds];
 
   // Рекурсивно получаем подкатегории для каждой дочерней категории
@@ -205,7 +244,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Форматирование ответа
-    const formattedProducts = products.map((product) => {
+    const formattedProducts = products.map((product: ProductWithRelations) => {
       // Извлекаем данные изображений и обрабатываем их
       const productImages = product.images || [];
 
@@ -216,7 +255,7 @@ export async function GET(request: NextRequest) {
       return {
         ...product,
         mainImage,
-        imageUrls: productImages.map((img) => img.url),
+        imageUrls: productImages.map((img: ProductImageType) => img.url),
         images: productImages, // Включаем все изображения в ответ
       };
     });

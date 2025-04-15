@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcrypt';
 import { db } from '@/lib/db';
-import { createAuditLog } from '@/lib/audit';
+import { logAction } from '@/lib/audit';
 import { getCurrentUser, isAdmin } from '@/lib/session';
 
 // Получение пользователя по ID
@@ -141,7 +141,7 @@ export async function PATCH(
     });
 
     // Запись в аудит
-    await createAuditLog({
+    await logAction({
       userId: currentUser.id,
       action: 'UPDATE',
       details: `Обновление пользователя: ${updatedUser.name}`,
@@ -202,7 +202,7 @@ export async function DELETE(
     });
 
     // Запись в аудит
-    await createAuditLog({
+    await logAction({
       userId: currentUser.id,
       action: 'DELETE',
       details: `Удаление пользователя: ${existingUser.name}`,

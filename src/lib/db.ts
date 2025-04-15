@@ -2,11 +2,11 @@ import { PrismaClient } from '@prisma/client';
 
 declare global {
   // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
+  var dbClient: PrismaClient | undefined;
 }
 
-export const db = globalThis.prisma || new PrismaClient();
+export const db = globalThis.dbClient || new PrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {
-  globalThis.prisma = db;
+  globalThis.dbClient = db;
 }

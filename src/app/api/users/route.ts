@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcrypt';
 import { db } from '@/lib/db';
-import { createAuditLog } from '@/lib/audit';
+import { logAction } from '@/lib/audit';
 import { getCurrentUser, isAdmin } from '@/lib/session';
 
 // Получение списка пользователей
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Запись в аудит
-    await createAuditLog({
+    await logAction({
       userId: currentUser.id,
       action: 'CREATE',
       details: `Создание нового пользователя: ${name}`,

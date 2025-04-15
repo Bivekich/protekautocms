@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, Product } from '@prisma/client';
+
+// Типы для продуктов с категориями и изображениями
+interface ProductWithRelations extends Product {
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+    parentId: string | null;
+    parent?: {
+      id: string;
+      name: string;
+      slug: string;
+    } | null;
+  } | null;
+  images: Array<{ url: string }>;
+  characteristics: Array<{ name: string; value: string }>;
+}
 
 // Функция для рекурсивного получения всех подкатегорий
 async function getAllSubcategories(parentId: string): Promise<string[]> {
@@ -11,7 +28,7 @@ async function getAllSubcategories(parentId: string): Promise<string[]> {
 
   if (directChildren.length === 0) return [];
 
-  const childIds = directChildren.map((cat) => cat.id);
+  const childIds = directChildren.map((cat: { id: string }) => cat.id);
   let allDescendants: string[] = [...childIds];
 
   // Рекурсивно получаем подкатегории для каждой дочерней категории
@@ -120,7 +137,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Форматирование ответа
-    const formattedProducts = products.map((product) => {
+    const formattedProducts = products.map((product: ProductWithRelations) => {
       // Извлекаем данные изображений и обрабатываем их
       const productImages = product.images || [];
 
@@ -139,7 +156,7 @@ export async function GET(request: NextRequest) {
         categoryId: product.categoryId,
         category: product.category,
         mainImage,
-        imageUrls: productImages.map((img) => img.url),
+        imageUrls: productImages.map((img: { url: string }) => img.url),
         characteristics: product.characteristics,
       };
     });

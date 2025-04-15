@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Edit, Trash2, Loader2, Filter } from 'lucide-react';
+import {
+  Edit,
+  Trash2,
+  Loader2,
+  Filter,
+  MoreHorizontal,
+  FolderInput,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -39,6 +46,20 @@ import {
 import Image from 'next/image';
 import { ProductWithDetails } from '@/types/catalog';
 import { useSearchParams } from 'next/navigation';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import CategoryTreeView from './CategoryTreeView';
+import { CategoryWithChildren } from './CategoryTreeView';
 
 type ProductsListProps = {
   categoryId: string;
@@ -78,6 +99,11 @@ export default function ProductsList({
     searchParams.get('visibility') || 'all'
   );
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [categories, setCategories] = useState<CategoryWithChildren[]>([]);
+
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   // Функция загрузки товаров
   const fetchProducts = useCallback(async () => {
@@ -338,6 +364,139 @@ export default function ProductsList({
   // Проверка, есть ли активные фильтры
   const hasActiveFilters = stockFilter !== 'all' || visibilityFilter !== 'all';
 
+  // Обработчик массового удаления
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch('/api/catalog/products/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productIds: Array.from(selectedProducts),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при удалении товаров');
+      }
+
+      // Обновляем список товаров
+      setProducts((prevProducts) =>
+        prevProducts.filter((product) => !selectedProducts.has(product.id))
+      );
+
+      setSelectedProducts(new Set());
+      setAllSelected(false);
+      toast.success('Выбранные товары удалены');
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Произошла ошибка при удалении товаров'
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Обработчик массового изменения видимости
+  const handleBulkVisibility = async (isVisible: boolean) => {
+    if (selectedProducts.size === 0) return;
+
+    try {
+      const response = await fetch('/api/catalog/products/bulk-update', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productIds: Array.from(selectedProducts),
+          data: { isVisible },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при обновлении товаров');
+      }
+
+      // Обновляем состояние товаров
+      setProducts((prevProducts) =>
+        prevProducts.map((product) =>
+          selectedProducts.has(product.id) ? { ...product, isVisible } : product
+        )
+      );
+
+      toast.success(`Выбранные товары ${isVisible ? 'показаны' : 'скрыты'}`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Произошла ошибка при обновлении товаров'
+      );
+    }
+  };
+
+  // Обработчик массового изменения категории
+  const handleBulkChangeCategory = async (newCategoryId: string) => {
+    if (selectedProducts.size === 0) return;
+
+    try {
+      const response = await fetch('/api/catalog/products/bulk-update', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productIds: Array.from(selectedProducts),
+          data: { categoryId: newCategoryId },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при обновлении категории товаров');
+      }
+
+      // Обновляем список товаров
+      await fetchProducts();
+      setSelectedProducts(new Set());
+      setAllSelected(false);
+
+      toast.success('Категория выбранных товаров изменена');
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Произошла ошибка при обновлении категории'
+      );
+    }
+  };
+
+  // Загрузка категорий
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/catalog/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data);
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке категорий:', error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Обработчик открытия диалога массового удаления
+  const openBulkDeleteDialog = () => {
+    setIsBulkDeleteDialogOpen(true);
+  };
+
   if (isLoading && products.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -358,7 +517,38 @@ export default function ProductsList({
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <div>
+        <div className="flex items-center gap-4">
+          {selectedProducts.size > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                Выбрано: {selectedProducts.size}
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Действия <MoreHorizontal className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handleBulkVisibility(true)}>
+                    Показать на сайте
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkVisibility(false)}>
+                    Скрыть с сайта
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setIsCategoryDialogOpen(true)}
+                  >
+                    <FolderInput className="h-4 w-4 mr-2" />
+                    Переместить в категорию
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={openBulkDeleteDialog}>
+                    Удалить
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
           {hasActiveFilters && (
             <div className="flex items-center">
               <span className="text-sm text-gray-500 mr-2">
@@ -514,33 +704,28 @@ export default function ProductsList({
                     {/* Отображаем информацию о категории, если товар не из текущей просматриваемой категории */}
                     {product.category && product.category.id !== categoryId && (
                       <div className="text-xs text-gray-500 mt-1 flex items-center">
-                        <span className="mr-1">из:</span>
-                        {product.category.parent &&
-                          product.category.parent.id && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (
-                                    onCategorySelect &&
-                                    product.category?.parent?.id
-                                  ) {
-                                    onCategorySelect(
-                                      product.category.parent.id
-                                    );
-                                  } else if (product.category?.parent?.id) {
-                                    // Fallback для случаев, когда onCategorySelect не передан
-                                    window.location.href = `?category=${product.category.parent.id}`;
-                                  }
-                                }}
-                                className="text-blue-500 hover:underline"
-                              >
-                                {product.category.parent.name}
-                              </button>
-                              <span className="mx-1">→</span>
-                            </>
-                          )}
+                        {product.category?.parent && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (
+                                  onCategorySelect &&
+                                  product.category?.parent?.id
+                                ) {
+                                  onCategorySelect(product.category.parent.id);
+                                } else if (product.category?.parent?.id) {
+                                  window.location.href = `?category=${product.category.parent.id}`;
+                                }
+                              }}
+                              className="text-blue-500 hover:underline"
+                            >
+                              {product.category.parent.name}
+                            </button>
+                            <span className="mx-1">→</span>
+                          </>
+                        )}
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -711,6 +896,63 @@ export default function ProductsList({
             >
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Диалог выбора категории */}
+      <Dialog
+        open={isCategoryDialogOpen}
+        onOpenChange={setIsCategoryDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Выберите категорию</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <CategoryTreeView
+              categories={categories}
+              selectedCategoryIds={[]}
+              onSelectCategory={(categoryId: string, checked: boolean) => {
+                if (checked) {
+                  handleBulkChangeCategory(categoryId);
+                  setIsCategoryDialogOpen(false);
+                }
+              }}
+              multiSelect={false}
+              initialExpandedCategoryId={
+                categoryId !== 'all' ? categoryId : undefined
+              }
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог подтверждения массового удаления */}
+      <AlertDialog
+        open={isBulkDeleteDialogOpen}
+        onOpenChange={setIsBulkDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удаление товаров</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы действительно хотите удалить выбранные товары (
+              {selectedProducts.size} шт.)? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Удалить'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

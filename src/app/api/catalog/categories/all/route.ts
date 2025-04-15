@@ -16,7 +16,7 @@ export async function GET() {
     console.log('Получено категорий из базы данных:', categories.length);
 
     // Выводим уровни категорий для отладки
-    categories.forEach((cat) => {
+    categories.forEach((cat: PrismaCategory) => {
       console.log(
         `Категория ${cat.name} (ID: ${cat.id}), уровень: ${
           cat.level
@@ -28,7 +28,7 @@ export async function GET() {
     const categoryMap = new Map<string, CategoryWithSubcats>();
 
     // Сначала создаем Map с id категорий в качестве ключей
-    categories.forEach((category) => {
+    categories.forEach((category: PrismaCategory) => {
       categoryMap.set(category.id, {
         ...category,
         subcategories: [],
@@ -38,7 +38,7 @@ export async function GET() {
     // Строим дерево категорий
     const rootCategories: CategoryWithSubcats[] = [];
 
-    categories.forEach((category) => {
+    categories.forEach((category: PrismaCategory) => {
       const categoryWithSubcategories = categoryMap.get(category.id);
 
       if (category.parentId === null) {

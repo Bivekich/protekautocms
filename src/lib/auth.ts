@@ -2,6 +2,9 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { compare } from 'bcrypt';
 import { db } from '@/lib/db';
+import { cookies } from 'next/headers';
+import { prisma } from '@/lib/prisma';
+import jwt from 'jsonwebtoken';
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -155,5 +158,48 @@ declare module 'next-auth/jwt' {
     role: string;
     avatarUrl?: string;
     requiresTwoFactor?: boolean;
+  }
+}
+
+// Интерфейс для данных пользователя
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+/**
+ * Получает данные текущего пользователя из токена авторизации
+ * @returns Данные пользователя или null, если пользователь не авторизован
+ */
+export async function getCurrentUser(): Promise<UserData | null> {
+  try {
+    const cookieStore = await cookies();
+    const authToken = await cookieStore.get('authToken')?.value;
+
+    if (!authToken) return null;
+
+    // Верифицируем JWT токен
+    const secret = process.env.JWT_SECRET || 'default-secret';
+    const decoded = jwt.verify(authToken, secret) as { userId: string };
+
+    if (!decoded?.userId) return null;
+
+    // Получаем пользователя из БД
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    return user;
+  } catch (error) {
+    console.error('Ошибка при получении текущего пользователя:', error);
+    return null;
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ProductImage } from '@prisma/client';
 
 // GET /api/public/catalog/products/slug/[slug] - получение информации о товаре по slug
 export async function GET(
@@ -61,7 +62,7 @@ export async function GET(
       categoryId: product.categoryId,
       category: product.category,
       mainImage: product.images.length > 0 ? product.images[0].url : null,
-      imageUrls: product.images.map((img) => img.url),
+      imageUrls: product.images.map((img: ProductImage) => img.url),
       characteristics: product.characteristics,
       options: product.options,
     };

@@ -193,3 +193,146 @@ enum UserRole {
   ADMIN
   MANAGER
 }
+
+model Client {
+  id               String    @id @default(cuid())
+  phone            String    @unique
+  email            String?
+  firstName        String?
+  lastName         String?
+  isVerified       Boolean   @default(false)
+  profileType      String    @default("Розничный")
+  profileId        String?
+  profile          ClientProfile? @relation(fields: [profileId], references: [id])
+  registrationDate DateTime  @default(now())
+  lastLoginDate    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Токен для аутентификации
+  authToken        String?
+
+  // SMS verification
+  smsCode          String?
+  smsCodeExpires   DateTime?
+
+  @@index([profileId])
+}
+
+model ClientProfile {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  code         String  @unique
+  comment      String?
+  baseMarkup   String
+  priceMarkup  String?
+  orderDiscount String?
+  clients      Client[]
+  discounts    Discount[]
+}
+
+model Discount {
+  id              String          @id @default(cuid())
+  name            String
+  type            String          // "Промокод" или "Скидка"
+  code            String?         // Код для промокода, для скидки не нужен
+  minOrderAmount  Float           @default(0) // Минимальная сумма заказа
+  discountPercent Float?          // Процент скидки
+  fixedDiscount   Float?          // Фиксированная сумма скидки
+  isActive        Boolean         @default(true)
+  startDate       DateTime?       // Дата начала действия скидки
+  endDate         DateTime?       // Дата окончания действия скидки
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  profiles        ClientProfile[] // Связь с профилями клиентов
+}
+
+model Auto {
+  id           String   @id @default(cuid())
+  name         String
+  vinOrFrame   String?
+  codeType     String?  @default("VIN")
+  make         String?
+  model        String?
+  modification String?
+  year         Int?
+  licensePlate String?
+  mileage      Int?
+  comment      String?
+  clientId     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  position  String?
+  company   String?
+  comment   String?
+  clientId  String
+  isMain    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+model Contract {
+  id        String   @id @default(cuid())
+  number    String
+  date      DateTime
+  type      String?
+  status    String   @default("Активный")
+  comment   String?
+  clientId  String
+  fileUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+model LegalEntity {
+  id                 String   @id @default(cuid())
+  name               String
+  shortName          String?
+  fullName           String?
+  form               String?
+  inn                String
+  kpp                String?
+  ogrn               String?
+  address            String?
+  legalAddress       String?
+  taxSystem          String?
+  responsiblePhone   String?
+  responsibleName    String?
+  responsiblePosition String?
+  accountant         String?
+  signatory          String?
+  vatPercent         Float?
+  clientId           String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+model Requisite {
+  id                   String   @id @default(cuid())
+  name                 String   @default("Основной")
+  bankName             String
+  bik                  String
+  correspondentAccount String
+  accountNumber        String
+  swift                String?
+  legalEntityId        String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([legalEntityId])
+}

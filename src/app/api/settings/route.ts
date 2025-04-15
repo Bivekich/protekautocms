@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcrypt';
 import { db } from '@/lib/db';
-import { createAuditLog } from '@/lib/audit';
+import { logAction } from '@/lib/audit';
 import { getCurrentUser } from '@/lib/session';
 
 // Получение настроек пользователя
@@ -128,7 +128,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     // Запись в аудит
-    await createAuditLog({
+    await logAction({
       userId: currentUser.id,
       action: 'UPDATE',
       details: 'Обновление настроек профиля',

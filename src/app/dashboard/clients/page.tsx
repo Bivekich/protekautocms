@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -39,81 +39,138 @@ import { ClientProfiles } from '@/components/clients/ClientProfiles';
 import { ClientDiscounts } from '@/components/clients/ClientDiscounts';
 import { ClientStatus } from '@/components/clients/ClientStatus';
 
-// Фейковые данные для клиентов
-const clients = [
-  {
-    id: '123421',
-    profileType: 'Розничный',
-    name: 'Иванов Иван Иванович',
-    email: 'ivanov@example.com',
-    markup: '15%',
-    phone: '+7 (900) 123-45-67',
-    registrationDate: '12.03.2024',
-    registrationStatus: 'Подтвержден',
-  },
-  {
-    id: '123422',
-    profileType: 'Оптовый',
-    name: 'Петров Петр Петрович',
-    email: 'petrov@example.com',
-    markup: '10%',
-    phone: '+7 (900) 987-65-43',
-    registrationDate: '10.03.2024',
-    registrationStatus: 'Не подтвержден',
-  },
-  {
-    id: '123423',
-    profileType: 'Юридическое лицо',
-    name: 'ООО Рога и Копыта',
-    email: 'info@rogaikopyta.ru',
-    markup: '5%',
-    phone: '+7 (495) 123-45-67',
-    registrationDate: '05.03.2024',
-    registrationStatus: 'Подтвержден',
-  },
-  {
-    id: '123424',
-    profileType: 'Розничный',
-    name: 'Сидоров Сидор Сидорович',
-    email: 'sidorov@example.com',
-    markup: '15%',
-    phone: '+7 (900) 111-22-33',
-    registrationDate: '01.03.2024',
-    registrationStatus: 'Подтвержден',
-  },
-  {
-    id: '123425',
-    profileType: 'Юридическое лицо',
-    name: 'ИП Смирнов А.А.',
-    email: 'smirnov@example.com',
-    markup: '7%',
-    phone: '+7 (900) 444-55-66',
-    registrationDate: '28.02.2024',
-    registrationStatus: 'Подтвержден',
-  },
-];
+// Определяем интерфейс для клиента
+interface Client {
+  id: string;
+  profileType: string;
+  name: string;
+  email: string;
+  markup: string;
+  phone: string;
+  registrationDate: string;
+  registrationStatus: string;
+}
+
+// Немного уточнить тип для данных формы
+interface ClientFormData {
+  phone: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  profileType: string;
+  profileId?: string;
+}
 
 export default function ClientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [profileFilter, setProfileFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [profileOptions, setProfileOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
 
-  // Фильтрация клиентов
-  const filteredClients = clients.filter((client) => {
-    const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone.includes(searchTerm) ||
-      client.id.includes(searchTerm);
+  // Загрузка клиентов с сервера
+  const fetchClients = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-    const matchesProfile =
-      profileFilter === 'all' || client.profileType === profileFilter;
-    const matchesStatus =
-      statusFilter === 'all' || client.registrationStatus === statusFilter;
+      // Формируем строку запроса с фильтрами
+      let url = '/api/clients?';
 
-    return matchesSearch && matchesProfile && matchesStatus;
-  });
+      if (searchTerm) {
+        url += `search=${encodeURIComponent(searchTerm)}&`;
+      }
+
+      if (profileFilter !== 'all') {
+        url += `profileType=${encodeURIComponent(profileFilter)}&`;
+      }
+
+      if (statusFilter !== 'all') {
+        url += `isVerified=${statusFilter === 'Подтвержден'}&`;
+      }
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error('Ошибка при загрузке данных');
+      }
+
+      const data = await response.json();
+      setClients(data.clients);
+    } catch (err) {
+      console.error('Ошибка при получении списка клиентов:', err);
+      setError('Не удалось загрузить список клиентов');
+      setClients([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchTerm, profileFilter, statusFilter]);
+
+  // Загружаем клиентов при изменении фильтров
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
+
+  // Загрузка профилей при монтировании компонента
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  // Функция для загрузки профилей клиентов
+  const fetchProfiles = async () => {
+    try {
+      setIsLoadingProfiles(true);
+      const response = await fetch('/api/client-profiles');
+
+      if (!response.ok) {
+        throw new Error('Ошибка при загрузке профилей клиентов');
+      }
+
+      const data = await response.json();
+      setProfileOptions(
+        data.profiles.map((profile: { id: string; name: string }) => ({
+          id: profile.id,
+          name: profile.name,
+        }))
+      );
+    } catch (error) {
+      console.error('Ошибка при загрузке профилей клиентов:', error);
+    } finally {
+      setIsLoadingProfiles(false);
+    }
+  };
+
+  // Функция для добавления нового клиента
+  const handleAddClient = async (formData: ClientFormData) => {
+    try {
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при создании клиента');
+      }
+
+      // Обновляем список клиентов
+      fetchClients();
+
+      // Закрываем диалог
+      setIsAddClientDialogOpen(false);
+    } catch (err) {
+      console.error('Ошибка при создании клиента:', err);
+      // Здесь можно добавить обработку ошибки для формы
+    }
+  };
 
   return (
     <div className="container mx-auto py-6">
@@ -186,57 +243,65 @@ export default function ClientsPage() {
                 </div>
               </div>
 
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Номер клиента</TableHead>
-                      <TableHead>Тип профиля</TableHead>
-                      <TableHead>Имя</TableHead>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>Наценка</TableHead>
-                      <TableHead>Номер телефона</TableHead>
-                      <TableHead>Дата регистрации</TableHead>
-                      <TableHead>Статус регистрации</TableHead>
-                      <TableHead>Вход</TableHead>
-                      <TableHead>Действия</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredClients.map((client) => (
-                      <TableRow key={client.id}>
-                        <TableCell>{client.id}</TableCell>
-                        <TableCell>{client.profileType}</TableCell>
-                        <TableCell>
-                          <a
-                            href={`/dashboard/clients/${client.id}`}
-                            className="text-blue-600 hover:underline"
-                          >
-                            {client.name}
-                          </a>
-                        </TableCell>
-                        <TableCell>{client.email}</TableCell>
-                        <TableCell>{client.markup}</TableCell>
-                        <TableCell>{client.phone}</TableCell>
-                        <TableCell>{client.registrationDate}</TableCell>
-                        <TableCell>{client.registrationStatus}</TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm">
-                            Войти
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={`/dashboard/clients/${client.id}`}>
-                              Редактировать
-                            </a>
-                          </Button>
-                        </TableCell>
+              {isLoading ? (
+                <div className="text-center py-8">Загрузка данных...</div>
+              ) : error ? (
+                <div className="text-center py-8 text-red-500">{error}</div>
+              ) : clients.length === 0 ? (
+                <div className="text-center py-8">Клиенты не найдены</div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Номер клиента</TableHead>
+                        <TableHead>Тип профиля</TableHead>
+                        <TableHead>Имя</TableHead>
+                        <TableHead>E-mail</TableHead>
+                        <TableHead>Наценка</TableHead>
+                        <TableHead>Номер телефона</TableHead>
+                        <TableHead>Дата регистрации</TableHead>
+                        <TableHead>Статус регистрации</TableHead>
+                        <TableHead>Вход</TableHead>
+                        <TableHead>Действия</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {clients.map((client) => (
+                        <TableRow key={client.id}>
+                          <TableCell>{client.id}</TableCell>
+                          <TableCell>{client.profileType}</TableCell>
+                          <TableCell>
+                            <a
+                              href={`/dashboard/clients/${client.id}`}
+                              className="text-blue-600 hover:underline"
+                            >
+                              {client.name}
+                            </a>
+                          </TableCell>
+                          <TableCell>{client.email}</TableCell>
+                          <TableCell>{client.markup}</TableCell>
+                          <TableCell>{client.phone}</TableCell>
+                          <TableCell>{client.registrationDate}</TableCell>
+                          <TableCell>{client.registrationStatus}</TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm">
+                              Войти
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={`/dashboard/clients/${client.id}`}>
+                                Редактировать
+                              </a>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -254,83 +319,98 @@ export default function ClientsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Диалог добавления клиента */}
       <Dialog
         open={isAddClientDialogOpen}
         onOpenChange={setIsAddClientDialogOpen}
       >
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Добавить нового клиента</DialogTitle>
+            <DialogTitle>Добавить клиента</DialogTitle>
             <DialogDescription>
-              Заполните информацию о новом клиенте. Обязательные поля отмечены
-              звездочкой (*).
+              Заполните форму для создания нового клиента
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="clientType" className="text-right">
-                Тип клиента *
-              </Label>
-              <Select defaultValue="physical">
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Выберите тип клиента" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="physical">Физическое лицо</SelectItem>
-                  <SelectItem value="legal">Юридическое лицо</SelectItem>
-                </SelectContent>
-              </Select>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const client = {
+                phone: formData.get('phone') as string,
+                firstName: formData.get('firstName') as string,
+                lastName: formData.get('lastName') as string,
+                email: formData.get('email') as string,
+                profileType: formData.get('profileType') as string,
+              };
+              handleAddClient(client);
+            }}
+          >
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">Имя</Label>
+                  <Input id="firstName" name="firstName" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Фамилия</Label>
+                  <Input id="lastName" name="lastName" required />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" name="email" type="email" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Телефон</Label>
+                <Input id="phone" name="phone" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profileType">Тип профиля</Label>
+                <Select name="profileType" defaultValue="Розничный">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите тип профиля" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Розничный">Розничный</SelectItem>
+                    <SelectItem value="Оптовый">Оптовый</SelectItem>
+                    <SelectItem value="Юридическое лицо">
+                      Юридическое лицо
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profileId">Профиль клиента</Label>
+                <Select name="profileId">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите профиль клиента" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingProfiles ? (
+                      <SelectItem value="" disabled>
+                        Загрузка профилей...
+                      </SelectItem>
+                    ) : (
+                      profileOptions.map((profile) => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Имя *
-              </Label>
-              <Input id="name" className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">
-                Телефон *
-              </Label>
-              <Input id="phone" className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
-              </Label>
-              <Input id="email" className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="city" className="text-right">
-                Город
-              </Label>
-              <Input id="city" className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="profile" className="text-right">
-                Тип профиля *
-              </Label>
-              <Select defaultValue="retail">
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Выберите профиль" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="retail">Розничный</SelectItem>
-                  <SelectItem value="wholesale">Оптовый</SelectItem>
-                  <SelectItem value="vip">VIP</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsAddClientDialogOpen(false)}
-            >
-              Отмена
-            </Button>
-            <Button type="submit">Создать клиента</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddClientDialogOpen(false)}
+              >
+                Отмена
+              </Button>
+              <Button type="submit">Сохранить</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

@@ -1,6 +1,9 @@
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER');
 
+-- CreateEnum
+CREATE TYPE "ClientType" AS ENUM ('RETAIL', 'WHOLESALE');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -25,6 +28,8 @@ CREATE TABLE "AuditLog" (
     "userId" TEXT NOT NULL,
     "targetId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "productId" TEXT,
+    "targetType" TEXT,
 
     CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
 );
@@ -179,6 +184,20 @@ CREATE TABLE "ProductOptionValue" (
     CONSTRAINT "ProductOptionValue_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Client" (
+    "id" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "firstName" TEXT NOT NULL,
+    "lastName" TEXT NOT NULL,
+    "type" "ClientType" NOT NULL DEFAULT 'RETAIL',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Client_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -187,6 +206,9 @@ CREATE INDEX "AuditLog_userId_idx" ON "AuditLog"("userId");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_targetId_idx" ON "AuditLog"("targetId");
+
+-- CreateIndex
+CREATE INDEX "AuditLog_productId_idx" ON "AuditLog"("productId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Session_sessionToken_key" ON "Session"("sessionToken");
@@ -236,11 +258,17 @@ CREATE INDEX "ProductOption_productId_idx" ON "ProductOption"("productId");
 -- CreateIndex
 CREATE INDEX "ProductOptionValue_optionId_idx" ON "ProductOptionValue"("optionId");
 
--- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- CreateIndex
+CREATE UNIQUE INDEX "Client_phone_key" ON "Client"("phone");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Client_email_key" ON "Client"("email");
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_targetId_fkey" FOREIGN KEY ("targetId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PageSection" ADD CONSTRAINT "PageSection_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE CASCADE ON UPDATE CASCADE;

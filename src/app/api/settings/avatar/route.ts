@@ -4,7 +4,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 import { db } from '@/lib/db';
-import { createAuditLog } from '@/lib/audit';
+import { logAction } from '@/lib/audit';
 import { getCurrentUser } from '@/lib/session';
 
 // Загрузка аватарки пользователя
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Запись в аудит
-    await createAuditLog({
+    await logAction({
       userId: currentUser.id,
       action: 'UPDATE',
       details: 'Обновление аватарки пользователя',

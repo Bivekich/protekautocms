@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAuditLog } from '@/lib/audit';
+import { logAction } from '@/lib/audit';
 import { getCurrentUser } from '@/lib/session';
 
 export async function POST() {
@@ -11,10 +11,11 @@ export async function POST() {
     }
 
     // Создаем запись в аудите о входе пользователя
-    await createAuditLog({
+    await logAction({
       userId: currentUser.id,
-      action: 'LOGIN',
-      details: 'Вход в систему',
+      action: 'Вход в систему',
+      targetType: 'auth',
+      details: 'Успешная авторизация пользователя',
     });
 
     return NextResponse.json({ success: true });

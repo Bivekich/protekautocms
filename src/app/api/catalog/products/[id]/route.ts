@@ -180,7 +180,9 @@ export async function PATCH(
       });
 
       // Создаем Set с ID существующих опций для быстрого поиска
-      const existingOptionIds = new Set(existingOptions.map((opt) => opt.id));
+      const existingOptionIds = new Set(
+        existingOptions.map((opt: { id: string }) => opt.id)
+      );
 
       // Проходимся по каждой опции из запроса
       for (const option of validatedData.options) {
@@ -196,8 +198,11 @@ export async function PATCH(
 
           // Обрабатываем значения опции
           const existingValues =
-            existingOptions.find((opt) => opt.id === option.id)?.values || [];
-          const existingValueIds = new Set(existingValues.map((val) => val.id));
+            existingOptions.find((opt: { id: string }) => opt.id === option.id)
+              ?.values || [];
+          const existingValueIds = new Set(
+            existingValues.map((val: { id: string }) => val.id)
+          );
 
           // Обрабатываем каждое значение опции
           for (const value of option.values) {

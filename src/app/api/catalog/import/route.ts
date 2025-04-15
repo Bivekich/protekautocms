@@ -50,7 +50,10 @@ export async function POST(request: NextRequest) {
     // Получаем все категории для поиска по имени
     const categories = await prisma.category.findMany();
     const categoryMap = new Map(
-      categories.map((cat) => [cat.name.toLowerCase(), cat.id])
+      categories.map((cat: { name: string; id: string }) => [
+        cat.name.toLowerCase(),
+        cat.id,
+      ])
     );
 
     // Обрабатываем каждый товар

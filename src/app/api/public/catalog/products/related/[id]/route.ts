@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Product } from '@prisma/client';
+
+// Интерфейс для продукта с изображениями и категорией
+interface ProductWithRelations extends Product {
+  images: Array<{ url: string }>;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
 
 // GET /api/public/catalog/products/related/[id] - получение связанных товаров для указанного товара
 export async function GET(
@@ -69,28 +80,32 @@ export async function GET(
     });
 
     // Форматируем связанные товары
-    const formattedRelated = relatedProducts.map((product) => ({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      sku: product.sku,
-      retailPrice: product.retailPrice,
-      categoryId: product.categoryId,
-      category: product.category,
-      mainImage: product.images.length > 0 ? product.images[0].url : null,
-    }));
+    const formattedRelated = relatedProducts.map(
+      (product: ProductWithRelations) => ({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        sku: product.sku,
+        retailPrice: product.retailPrice,
+        categoryId: product.categoryId,
+        category: product.category,
+        mainImage: product.images.length > 0 ? product.images[0].url : null,
+      })
+    );
 
     // Форматируем сопутствующие товары
-    const formattedComplementary = complementaryProducts.map((product) => ({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      sku: product.sku,
-      retailPrice: product.retailPrice,
-      categoryId: product.categoryId,
-      category: product.category,
-      mainImage: product.images.length > 0 ? product.images[0].url : null,
-    }));
+    const formattedComplementary = complementaryProducts.map(
+      (product: ProductWithRelations) => ({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        sku: product.sku,
+        retailPrice: product.retailPrice,
+        categoryId: product.categoryId,
+        category: product.category,
+        mainImage: product.images.length > 0 ? product.images[0].url : null,
+      })
+    );
 
     return NextResponse.json({
       related: formattedRelated,
