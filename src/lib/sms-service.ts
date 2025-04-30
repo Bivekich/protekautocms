@@ -4,7 +4,7 @@ const API_KEY = process.env.SMSAERO_API_KEY;
 const SIGN = process.env.SMSAERO_SIGN || 'SMS Aero';
 
 // Функция для генерации случайного кода
-export function generateVerificationCode(length = 4): string {
+export function generateVerificationCode(length = 5): string {
   return Array.from({ length }, () => Math.floor(Math.random() * 10)).join('');
 }
 

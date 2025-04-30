@@ -127,6 +127,17 @@ export function LegalEntitiesList({
         </Button>
       </div>
 
+      <div className="bg-amber-50 border border-amber-300 p-4 rounded-md mb-4">
+        <p className="text-amber-800 font-medium">
+          Функционал юр. лиц в разработке
+        </p>
+        <p className="text-amber-700 text-sm mt-1">
+          Интерфейс для работы с юридическими лицами находится в процессе
+          разработки. API уже доступно, и вы можете добавлять юр. лица через
+          личный кабинет клиента на сайте.
+        </p>
+      </div>
+
       {entities.length > 0 ? (
         <div className="border rounded-md">
           <Table>

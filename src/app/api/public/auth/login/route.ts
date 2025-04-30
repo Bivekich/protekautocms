@@ -4,9 +4,10 @@ import { sign } from 'jsonwebtoken';
 
 // Настраиваем CORS
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'http://localhost:3001',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
 };
 
 // Обработчик OPTIONS запросов (CORS preflight)
@@ -14,70 +15,59 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = '30d'; // Токен действителен 30 дней
-
 export async function POST(req: Request) {
   try {
     const { phone, code } = await req.json();
 
-    if (!phone || !code) {
+    // Проверяем код
+    const verificationCode = await prisma.verificationCode.findFirst({
+      where: {
+        phone,
+        code,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!verificationCode) {
       return NextResponse.json(
-        { error: 'Телефон и код обязательны' },
+        { error: 'INVALID_CODE' },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    // Ищем клиента по номеру телефона
-    const client = await prisma.client.findUnique({
+    // Находим или создаем клиента
+    let client = await prisma.client.findUnique({
       where: { phone },
     });
 
+    let needsRegistration = false;
+
     if (!client) {
-      return NextResponse.json(
-        { error: 'Пользователь не найден' },
-        { status: 404, headers: corsHeaders }
-      );
+      client = await prisma.client.create({
+        data: {
+          phone,
+          isVerified: true,
+        },
+      });
+      needsRegistration = true;
     }
 
-    // Проверяем код
-    if (
-      !client.smsCode ||
-      client.smsCode !== code ||
-      !client.smsCodeExpires ||
-      new Date() > client.smsCodeExpires
-    ) {
-      return NextResponse.json(
-        { error: 'Неверный или просроченный код' },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    // Определяем, требуется ли регистрация
-    const needsRegistration =
-      !client.isVerified || !client.firstName || !client.lastName;
+    // Удаляем использованный код
+    await prisma.verificationCode.delete({
+      where: { id: verificationCode.id },
+    });
 
     // Генерируем JWT токен
     const token = sign(
       {
         id: client.id,
         phone: client.phone,
-        isVerified: client.isVerified,
       },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
     );
-
-    // Обновляем клиента
-    await prisma.client.update({
-      where: { id: client.id },
-      data: {
-        lastLoginDate: new Date(),
-        authToken: token,
-        smsCode: null, // Сбрасываем код после использования
-        smsCodeExpires: null,
-      },
-    });
 
     return NextResponse.json(
       {
@@ -86,18 +76,17 @@ export async function POST(req: Request) {
         client: {
           id: client.id,
           phone: client.phone,
-          firstName: client.firstName,
-          lastName: client.lastName,
-          email: client.email,
+          firstName: client.firstName || '',
+          lastName: client.lastName || '',
+          email: client.email || '',
           isVerified: client.isVerified,
-          profileType: client.profileType,
         },
         needsRegistration,
       },
       { headers: corsHeaders }
     );
   } catch (error) {
-    console.error('Ошибка при входе:', error);
+    console.error('Ошибка авторизации:', error);
     return NextResponse.json(
       { error: 'Ошибка авторизации' },
       { status: 500, headers: corsHeaders }

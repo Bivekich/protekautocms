@@ -195,24 +195,20 @@ enum UserRole {
 }
 
 model Client {
-  id               String    @id @default(cuid())
-  phone            String    @unique
+  id               String         @id @default(cuid())
+  phone            String         @unique
   email            String?
   firstName        String?
   lastName         String?
-  isVerified       Boolean   @default(false)
-  profileType      String    @default("Розничный")
+  isVerified       Boolean        @default(false)
+  profileType      String         @default("Розничный")
   profileId        String?
   profile          ClientProfile? @relation(fields: [profileId], references: [id])
-  registrationDate DateTime  @default(now())
+  registrationDate DateTime       @default(now())
   lastLoginDate    DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  // Токен для аутентификации
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
   authToken        String?
-
-  // SMS verification
   smsCode          String?
   smsCodeExpires   DateTime?
 
@@ -220,31 +216,31 @@ model Client {
 }
 
 model ClientProfile {
-  id           String  @id @default(cuid())
-  name         String  @unique
-  code         String  @unique
-  comment      String?
-  baseMarkup   String
-  priceMarkup  String?
+  id            String     @id @default(cuid())
+  name          String     @unique
+  code          String     @unique
+  comment       String?
+  baseMarkup    String
+  priceMarkup   String?
   orderDiscount String?
-  clients      Client[]
-  discounts    Discount[]
+  clients       Client[]
+  discounts     Discount[]
 }
 
 model Discount {
   id              String          @id @default(cuid())
   name            String
-  type            String          // "Промокод" или "Скидка"
-  code            String?         // Код для промокода, для скидки не нужен
-  minOrderAmount  Float           @default(0) // Минимальная сумма заказа
-  discountPercent Float?          // Процент скидки
-  fixedDiscount   Float?          // Фиксированная сумма скидки
+  type            String
+  code            String?
+  minOrderAmount  Float           @default(0)
+  discountPercent Float?
+  fixedDiscount   Float?
   isActive        Boolean         @default(true)
-  startDate       DateTime?       // Дата начала действия скидки
-  endDate         DateTime?       // Дата окончания действия скидки
+  startDate       DateTime?
+  endDate         DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-  profiles        ClientProfile[] // Связь с профилями клиентов
+  profiles        ClientProfile[]
 }
 
 model Auto {
@@ -335,4 +331,14 @@ model Requisite {
   updatedAt            DateTime @updatedAt
 
   @@index([legalEntityId])
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
 }
