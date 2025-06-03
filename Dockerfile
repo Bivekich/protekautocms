@@ -5,17 +5,23 @@ WORKDIR /app
 # Устанавливаем зависимости
 RUN apk add --no-cache libc6-compat openssl
 
-# Копируем все файлы
+# Копируем файлы проекта
 COPY . .
 
-# Делаем entrypoint-скрипт исполняемым
-RUN chmod +x ./docker-entrypoint.sh
+# Создаем директорию для загрузок
+RUN mkdir -p ./public/uploads
+
+# Установка зависимостей напрямую, без скриптов
+RUN npm install --legacy-peer-deps
+
+# Генерируем Prisma клиент
+RUN npx prisma generate
+
+# Для production
+ENV NODE_ENV=production
 
 # Порт, который будет слушать приложение
 EXPOSE 3000
 
-# Устанавливаем entrypoint-скрипт
-ENTRYPOINT ["./docker-entrypoint.sh"]
-
-# Команда для запуска приложения
+# Прямой запуск без скриптов
 CMD ["npm", "start"] 

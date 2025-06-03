@@ -2,8 +2,11 @@ version: '3.8'
 
 services:
   app:
+    image: protekauto-cms:latest
     build: .
     restart: always
+    environment:
+      - NODE_ENV=production
     ports:
       - "3000:3000"
     env_file:
