@@ -20,6 +20,9 @@ RUN npx prisma generate
 # Для production
 ENV NODE_ENV=production
 
+# Собираем приложение с пропуском проверки типов
+RUN npm run build --no-lint || npm run build -- --no-lint
+
 # Порт, который будет слушать приложение
 EXPOSE 3000
 

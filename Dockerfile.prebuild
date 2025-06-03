@@ -1,0 +1,33 @@
+FROM node:20.15.0-alpine
+
+WORKDIR /app
+
+# Устанавливаем зависимости
+RUN apk add --no-cache libc6-compat openssl
+
+# Копируем только package.json и package-lock.json
+COPY package*.json ./
+
+# Установка только production зависимостей
+RUN npm install --omit=dev --legacy-peer-deps
+
+# Копируем предварительно собранные файлы и необходимые каталоги
+COPY .next ./.next
+COPY public ./public
+COPY prisma ./prisma
+COPY next.config.ts ./
+
+# Создаем директорию для загрузок, если ее еще нет
+RUN mkdir -p ./public/uploads
+
+# Генерируем Prisma клиент
+RUN npx prisma generate
+
+# Для production
+ENV NODE_ENV=production
+
+# Порт, который будет слушать приложение
+EXPOSE 3000
+
+# Прямой запуск
+CMD ["npm", "start"] 
