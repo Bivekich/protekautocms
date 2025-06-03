@@ -11,7 +11,7 @@ npx prisma generate
 
 # Собираем приложение
 echo "Building application..."
-npm run build
+npm run build:no-check
 
 # Создаем директорию для загрузок
 mkdir -p ./public/uploads

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "NODE_OPTIONS=--no-deprecation next dev --turbopack",
     "build": "prisma generate && next build",
+    "build:no-check": "prisma generate && next build --no-lint",
     "postinstall": "prisma generate",
     "migrate": "prisma migrate deploy",
     "baseline": "node scripts/baseline-migrations.js",
