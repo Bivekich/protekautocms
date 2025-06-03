@@ -7,6 +7,38 @@
 3. Доступ к базе данных PostgreSQL (приобретается отдельно)
 4. Домен для вашего приложения
 
+## Методы деплоя
+
+В случае проблем с установкой зависимостей на сервере, можно использовать один из нескольких методов деплоя:
+
+### Метод 1: Стандартный деплой (docker-compose)
+
+```bash
+docker-compose up -d
+```
+
+### Метод 2: Деплой с использованием Yarn (если npm не работает)
+
+```bash
+docker-compose -f docker-compose.yarn.yml up -d
+```
+
+### Метод 3: Деплой с использованием PNPM (если npm и yarn не работают)
+
+```bash
+docker-compose -f docker-compose.pnpm.yml up -d
+```
+
+### Метод 4: Локальная сборка образа и загрузка на сервер
+
+Этот метод позволяет избежать проблем с установкой зависимостей на сервере, выполняя сборку локально:
+
+1. Отредактируйте файл `build-and-deploy.sh`, указав данные вашего сервера
+2. Запустите скрипт:
+   ```bash
+   ./build-and-deploy.sh
+   ```
+
 ## Шаги по деплою
 
 ### 1. Подготовка окружения
@@ -30,10 +62,7 @@ nano stack.env
 
 ### 2. Запуск приложения
 
-Запустите приложение с помощью Docker Compose:
-```bash
-docker-compose up -d
-```
+Запустите приложение с помощью одного из методов деплоя, описанных выше.
 
 Проверьте, что контейнер запустился успешно:
 ```bash
@@ -114,17 +143,19 @@ pg_dump -h your-db-host -U your-db-user -d your-db-name > backup_$(date +%Y%m%d)
 
 Если вы столкнулись с ошибкой `Failed to deploy a stack: compose build operation failed` или проблемами при установке зависимостей, попробуйте следующее:
 
-1. **Используйте альтернативный Dockerfile с pnpm:**
+1. **Используйте альтернативный Dockerfile с yarn:**
+   ```bash
+   docker-compose -f docker-compose.yarn.yml up -d
+   ```
+
+2. **Используйте альтернативный Dockerfile с pnpm:**
    ```bash
    docker-compose -f docker-compose.pnpm.yml up -d
    ```
 
-2. **Увеличьте лимит памяти для Docker:**
-   Если у вас возникают проблемы с нехваткой памяти при сборке, увеличьте лимит памяти для Docker в настройках.
-
-3. **Просмотр логов сборки:**
+3. **Используйте метод локальной сборки и загрузки:**
    ```bash
-   docker-compose build --no-cache --progress=plain
+   ./build-and-deploy.sh
    ```
 
 4. **Очистка Docker кэша:**
@@ -138,7 +169,7 @@ pg_dump -h your-db-host -U your-db-user -d your-db-name > backup_$(date +%Y%m%d)
 6. **Ошибки с зависимостями:**
    В случае проблем с конкретными пакетами, проверьте логи для определения проблемного пакета и обновите package.json для использования совместимой версии.
 
-7. **Установка с verbose-логированием:**
+7. **Добавьте ваши ключи NPM (если вы используете приватные пакеты):**
    ```bash
-   docker-compose build --no-cache --build-arg NPM_FLAGS="--verbose"
+   echo "//registry.npmjs.org/:_authToken=YOUR_AUTH_TOKEN" > .npmrc
    ``` 
