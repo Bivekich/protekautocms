@@ -1,7 +1,8 @@
 FROM node:20-alpine AS base
 
-# Устанавливаем зависимости, необходимые для Prisma
+# Устанавливаем зависимости и pnpm
 RUN apk add --no-cache libc6-compat openssl
+RUN npm install -g pnpm
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -9,12 +10,8 @@ WORKDIR /app
 # Устанавливаем зависимости
 FROM base AS deps
 COPY package.json package-lock.json ./
-# Увеличиваем лимит памяти для npm и добавляем флаги для увеличения надежности
-RUN npm config set registry https://registry.npmjs.org/ && \
-    npm config set fetch-retries 5 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    NODE_OPTIONS="--max-old-space-size=4096" npm install --legacy-peer-deps --no-fund --no-audit --verbose
+# Используем pnpm для установки зависимостей
+RUN pnpm install --frozen-lockfile
 
 # Сборка приложения
 FROM base AS builder

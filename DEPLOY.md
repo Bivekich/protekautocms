@@ -93,6 +93,8 @@ pg_dump -h your-db-host -U your-db-user -d your-db-name > backup_$(date +%Y%m%d)
 
 ## Устранение неполадок
 
+### Общие проблемы
+
 1. Проверьте статус контейнера:
    ```bash
    docker-compose ps
@@ -106,4 +108,37 @@ pg_dump -h your-db-host -U your-db-user -d your-db-name > backup_$(date +%Y%m%d)
 3. Проверьте соединение с базой данных:
    ```bash
    curl http://localhost:3000/api/health
+   ```
+
+### Проблемы при сборке
+
+Если вы столкнулись с ошибкой `Failed to deploy a stack: compose build operation failed` или проблемами при установке зависимостей, попробуйте следующее:
+
+1. **Используйте альтернативный Dockerfile с pnpm:**
+   ```bash
+   docker-compose -f docker-compose.pnpm.yml up -d
+   ```
+
+2. **Увеличьте лимит памяти для Docker:**
+   Если у вас возникают проблемы с нехваткой памяти при сборке, увеличьте лимит памяти для Docker в настройках.
+
+3. **Просмотр логов сборки:**
+   ```bash
+   docker-compose build --no-cache --progress=plain
+   ```
+
+4. **Очистка Docker кэша:**
+   ```bash
+   docker system prune -a
+   ```
+
+5. **Проблемы с сетью:**
+   Если проблемы связаны с загрузкой пакетов, проверьте сетевое соединение сервера и настройки прокси.
+
+6. **Ошибки с зависимостями:**
+   В случае проблем с конкретными пакетами, проверьте логи для определения проблемного пакета и обновите package.json для использования совместимой версии.
+
+7. **Установка с verbose-логированием:**
+   ```bash
+   docker-compose build --no-cache --build-arg NPM_FLAGS="--verbose"
    ``` 
