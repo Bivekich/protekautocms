@@ -8,11 +8,29 @@ RUN apk add --no-cache libc6-compat openssl
 # Устанавливаем переменные окружения
 ENV NODE_ENV=production
 
-# Копируем все файлы
+# Устанавливаем Prisma глобально
+RUN npm install -g prisma@6.8.2
+
+# Копируем файлы package.json и package-lock.json
+COPY package.json package-lock.json ./
+
+# Устанавливаем зависимости
+RUN npm ci --only=production
+
+# Копируем prisma схему
+COPY prisma ./prisma
+
+# Генерируем Prisma клиент
+RUN npx prisma generate
+
+# Копируем остальные файлы
 COPY . .
 
 # Делаем entrypoint-скрипт исполняемым
 RUN chmod +x ./docker-entrypoint.sh
+
+# Собираем приложение
+RUN npm run build
 
 # Создаем директорию для загрузок
 RUN mkdir -p ./public/uploads

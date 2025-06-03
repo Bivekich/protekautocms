@@ -10,8 +10,6 @@ services:
       - stack.env
     volumes:
       - uploads:/app/public/uploads
-      - node_modules:/app/node_modules
-      - next-cache:/app/.next
 
 volumes:
   uploads:
