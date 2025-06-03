@@ -15,7 +15,7 @@ RUN npm install -g prisma@6.8.2
 COPY package.json package-lock.json ./
 
 # Устанавливаем зависимости
-RUN npm ci --only=production
+RUN npm i --legacy-peer-deps
 
 # Копируем prisma схему
 COPY prisma ./prisma
