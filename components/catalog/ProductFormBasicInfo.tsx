@@ -44,7 +44,7 @@ export default function ProductFormBasicInfo({
 
         console.log('Отправка файла на сервер:', file.name);
 
-        const response = await fetch('/api/media', {
+        const response = await fetch('/api/media/upload', {
           method: 'POST',
           body: formData,
         });

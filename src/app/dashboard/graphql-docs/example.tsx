@@ -181,15 +181,55 @@ export const ApiExample = () => {
       try {
         setLoading(true);
         setError(null);
-        // В реальном проекте здесь будет URL вашего API
-        const response = await fetch(`/api/public/pages/${selectedPage}`);
+        
+        // GraphQL запрос вместо REST API
+        const response = await fetch('/api/graphql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: `
+              query GetPage($slug: String!) {
+                page(slug: $slug) {
+                  id
+                  slug
+                  title
+                  description
+                  isActive
+                  createdAt
+                  updatedAt
+                  sections {
+                    id
+                    pageId
+                    type
+                    order
+                    content
+                    isActive
+                    createdAt
+                    updatedAt
+                  }
+                }
+              }
+            `,
+            variables: {
+              slug: selectedPage
+            }
+          })
+        });
 
         if (!response.ok) {
           throw new Error(`Error: ${response.status}`);
         }
 
-        const data = await response.json();
-        setPage(data);
+        const result = await response.json();
+        
+        // GraphQL возвращает данные в поле data.page
+        if (result.errors) {
+          throw new Error(result.errors[0].message);
+        }
+        
+        setPage(result.data.page);
       } catch (err) {
         setError(
           err instanceof Error
@@ -218,7 +258,7 @@ export const ApiExample = () => {
         <CardHeader>
           <CardTitle>Живой пример</CardTitle>
           <CardDescription>
-            Пример получения и отображения данных страниц
+            Пример получения и отображения данных с помощью GraphQL
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
@@ -236,7 +276,7 @@ export const ApiExample = () => {
         <CardHeader>
           <CardTitle>Живой пример</CardTitle>
           <CardDescription>
-            Пример получения и отображения данных страниц
+            Пример получения и отображения данных с помощью GraphQL
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
@@ -253,7 +293,7 @@ export const ApiExample = () => {
       <CardHeader>
         <CardTitle>Живой пример</CardTitle>
         <CardDescription>
-          Пример получения и отображения данных страниц
+          Пример получения и отображения данных с помощью GraphQL
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -360,25 +400,33 @@ export const ApiExample = () => {
                             {(section.content as AboutCompanyContent).title}
                           </h5>
                           <div className="space-y-2">
-                            {(
-                              section.content as AboutCompanyContent
-                            ).features.map((feature, index) => (
-                              <div
-                                key={index}
-                                className="p-2 bg-white rounded border"
-                              >
-                                <h6 className="font-medium">{feature.title}</h6>
-                                <p className="text-sm">{feature.description}</p>
-                              </div>
-                            ))}
+                            {(section.content as AboutCompanyContent).features.map(
+                              (feature, index) => (
+                                <div
+                                  key={index}
+                                  className="p-2 bg-white rounded border"
+                                >
+                                  <h6 className="font-medium">
+                                    {feature.title}
+                                  </h6>
+                                  <p className="text-sm">{feature.description}</p>
+                                </div>
+                              )
+                            )}
                           </div>
                         </div>
                       )}
 
-                      <div className="bg-muted p-2 rounded-md">
-                        <pre className="text-xs overflow-auto max-h-[200px]">
-                          {JSON.stringify(section.content, null, 2)}
-                        </pre>
+                      {/* Общая визуализация контента */}
+                      <div className="mt-2">
+                        <button
+                          className="text-xs text-blue-600 hover:underline"
+                          onClick={() => {
+                            console.log(section.content);
+                          }}
+                        >
+                          Показать содержимое в консоли
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -394,16 +442,42 @@ export const ApiExample = () => {
           </h3>
           <div className="bg-muted p-4 rounded-md">
             <pre className="font-mono text-xs whitespace-pre-wrap">
-              {`// Пример получения данных страницы ${selectedPage}
-const response = await fetch('/api/public/pages/${selectedPage}');
-const data = await response.json();
+              {`// Пример получения данных страницы ${selectedPage} с помощью GraphQL
+const response = await fetch('/api/graphql', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    query: \`
+      query GetPage($slug: String!) {
+        page(slug: $slug) {
+          id
+          slug
+          title
+          description
+          sections {
+            id
+            type
+            content
+          }
+        }
+      }
+    \`,
+    variables: {
+      slug: "${selectedPage}"
+    }
+  })
+});
+
+const { data } = await response.json();
 
 // Использование данных
-console.log(data.title);
-console.log(data.sections);
+console.log(data.page.title);
+console.log(data.page.sections);
 
 // Пример получения конкретной секции
-const section = data.sections.find(section => section.type === '${
+const section = data.page.sections.find(section => section.type === '${
                 page?.sections[0]?.type || 'example'
               }');
 if (section) {

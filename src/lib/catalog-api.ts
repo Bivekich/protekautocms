@@ -168,13 +168,51 @@ export const importExportApi = {
     format: ImportExportFormat,
     options: ExportOptions
   ): Promise<string> => {
-    // Имитация задержки запроса
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // GraphQL мутация для экспорта
+    const exportMutation = `
+      mutation ExportCatalog($input: ExportInput!) {
+        exportCatalog(input: $input)
+      }
+    `;
 
-    // В реальном приложении здесь будет логика экспорта данных
-    console.log(`Экспорт данных в формате ${format} с опциями:`, options);
+    const variables = {
+      input: {
+        format,
+        includeImages: options.includeImages,
+        includeCategories: options.includeCategories,
+        includeOptions: options.includeOptions,
+        includeCharacteristics: options.includeCharacteristics,
+      },
+    };
 
-    return 'data:text/csv;base64,SGVsbG8gV29ybGQ='; // Пример Base64-закодированных данных
+    try {
+      const response = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: exportMutation,
+          variables,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при выполнении запроса');
+      }
+
+      const result = await response.json();
+
+      if (result.errors && result.errors.length > 0) {
+        throw new Error(result.errors[0].message);
+      }
+
+      // Возвращаем URL для скачивания
+      return result.data.exportCatalog;
+    } catch (error) {
+      console.error('Ошибка при экспорте данных:', error);
+      throw error;
+    }
   },
 
   // Импорт данных

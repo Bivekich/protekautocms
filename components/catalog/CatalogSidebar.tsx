@@ -22,7 +22,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { CategoryWithSubcategories } from '@/types/catalog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +41,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { useCatalogGraphQL, Category } from '@/hooks/useCatalogGraphQL';
 
 export type CatalogSidebarProps = {
   selectedCategory: string | null;
@@ -55,16 +55,13 @@ export default function CatalogSidebar({
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set()
   );
-  const [categories, setCategories] = useState<CategoryWithSubcategories[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const [categories, setCategories] = useState<Category[]>([]);
+  
   // Состояния для модальных окон
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [currentCategory, setCurrentCategory] =
-    useState<CategoryWithSubcategories | null>(null);
+  const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [parentId, setParentId] = useState<string | null>(null);
 
   // Состояния для формы
@@ -75,19 +72,16 @@ export default function CatalogSidebar({
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  // Используем GraphQL хук
+  const { loading: isLoading, error, getCategories, deleteCategory } = useCatalogGraphQL();
+
   // Функция загрузки категорий
   const fetchCategories = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
     try {
-      const response = await fetch('/api/catalog/categories/all');
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке категорий');
-      }
-      const data = await response.json();
-
+      const result = await getCategories(true); // включаем скрытые категории
+      
       // Отладка данных
-      console.log('Received categories data:', JSON.stringify(data, null, 2));
+      console.log('Received categories data:', JSON.stringify(result, null, 2));
 
       // Добавляем категорию "Все товары"
       const allCategories = [
@@ -96,10 +90,16 @@ export default function CatalogSidebar({
           name: 'Все товары',
           slug: 'all',
           level: 0,
+          order: 0,
           parentId: null,
+          isVisible: true,
+          includeSubcategoryProducts: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           subcategories: [],
+          productsCount: 0,
         },
-        ...data,
+        ...result.categories,
       ];
 
       setCategories(allCategories);
@@ -109,12 +109,10 @@ export default function CatalogSidebar({
         onCategorySelect('all');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
       console.error('Ошибка при загрузке категорий:', err);
-    } finally {
-      setIsLoading(false);
+      toast.error('Ошибка при загрузке категорий');
     }
-  }, [selectedCategory, onCategorySelect]);
+  }, [getCategories, selectedCategory, onCategorySelect]);
 
   // Загрузка категорий при монтировании компонента
   useEffect(() => {
@@ -125,7 +123,7 @@ export default function CatalogSidebar({
   const rootCategories = categories;
 
   // Получение подкатегорий для заданной категории
-  const getSubcategories = (category: CategoryWithSubcategories) => {
+  const getSubcategories = (category: Category) => {
     return category.subcategories || [];
   };
 
@@ -153,7 +151,7 @@ export default function CatalogSidebar({
   };
 
   // Обработчик открытия диалога редактирования категории
-  const openEditCategoryDialog = (category: CategoryWithSubcategories) => {
+  const openEditCategoryDialog = (category: Category) => {
     setCurrentCategory(category);
     setFormData({
       name: category.name,
@@ -164,7 +162,7 @@ export default function CatalogSidebar({
   };
 
   // Обработчик открытия диалога удаления категории
-  const openDeleteCategoryDialog = (category: CategoryWithSubcategories) => {
+  const openDeleteCategoryDialog = (category: Category) => {
     setCurrentCategory(category);
     setIsDeleteDialogOpen(true);
   };
@@ -284,17 +282,7 @@ export default function CatalogSidebar({
     if (!currentCategory) return;
 
     try {
-      const response = await fetch(
-        `/api/catalog/categories/${currentCategory.id}`,
-        {
-          method: 'DELETE',
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка при удалении категории');
-      }
+      await deleteCategory(currentCategory.id);
 
       // Сохраняем ID удаленной категории
       const deletedCategoryId = currentCategory.id;
@@ -320,7 +308,7 @@ export default function CatalogSidebar({
   };
 
   // Рекурсивный рендер категорий
-  const renderCategory = (category: CategoryWithSubcategories) => {
+  const renderCategory = (category: Category) => {
     const subcategories = getSubcategories(category);
     const hasSubcategories = subcategories.length > 0;
     const isExpanded = expandedCategories.has(category.id);
@@ -424,7 +412,7 @@ export default function CatalogSidebar({
         {/* Подкатегории рендерятся только если категория развернута */}
         {hasSubcategories && isExpanded && (
           <div className="subcategories ml-4">
-            {subcategories.map((subcat: CategoryWithSubcategories) =>
+            {subcategories.map((subcat: Category) =>
               renderCategory(subcat)
             )}
           </div>

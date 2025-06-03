@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/session';
 import { logClientAction } from '@/lib/audit';
 
 // CORS заголовки
@@ -76,12 +76,12 @@ export async function GET(
  * Обновление клиента
  */
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(request);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -164,12 +164,12 @@ export async function PUT(
  * Удаление клиента
  */
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(request);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },

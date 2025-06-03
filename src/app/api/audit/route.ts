@@ -5,14 +5,14 @@ import { prisma } from '@/lib/prisma';
 // Получение списка записей аудита
 export async function GET(request: NextRequest) {
   try {
-    const isUserAdmin = await isAdmin();
+    const isUserAdmin = await isAdmin(request);
 
     if (!isUserAdmin) {
       return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 });
     }
 
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(request);
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

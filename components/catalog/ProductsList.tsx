@@ -44,7 +44,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
-import { ProductWithDetails } from '@/types/catalog';
 import { useSearchParams } from 'next/navigation';
 import {
   DropdownMenu,
@@ -60,6 +59,7 @@ import {
 } from '@/components/ui/dialog';
 import CategoryTreeView from './CategoryTreeView';
 import { CategoryWithChildren } from './CategoryTreeView';
+import { useCatalogGraphQL, Product } from '@/hooks/useCatalogGraphQL';
 
 type ProductsListProps = {
   categoryId: string;
@@ -76,9 +76,7 @@ export default function ProductsList({
 }: ProductsListProps) {
   const searchParams = useSearchParams();
 
-  const [products, setProducts] = useState<ProductWithDetails[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
     new Set()
   );
@@ -105,57 +103,52 @@ export default function ProductsList({
 
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
+  // Используем GraphQL хук
+  const { loading: isLoading, error, getProducts, bulkDeleteProducts, bulkUpdateProducts, deleteProduct, getCategories } = useCatalogGraphQL();
+
   // Функция загрузки товаров
   const fetchProducts = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+    setIsApplyingFilters(true);
     try {
-      // Формирование URL с параметрами
-      const url = new URL('/api/catalog/products', window.location.origin);
+      const params: {
+        page: number;
+        limit: number;
+        search?: string;
+        includeSubcategories?: boolean;
+        categoryId?: string;
+        stockFilter?: string;
+        visibilityFilter?: string;
+      } = {
+        page: currentPage,
+        limit: pageSize,
+        search: localSearchQuery || undefined,
+        includeSubcategories: includeSubcategories || undefined,
+      };
 
-      // Для категории "Все товары" не передаем параметр categoryId
+      // Для категории "Все товары" не передаем categoryId
       if (categoryId && categoryId !== 'all') {
-        url.searchParams.append('categoryId', categoryId);
-
-        // Если передан параметр включения подкатегорий
-        if (includeSubcategories) {
-          url.searchParams.append('includeSubcategories', 'true');
-        }
+        params.categoryId = categoryId;
       }
 
-      if (localSearchQuery) {
-        url.searchParams.append('search', localSearchQuery);
-      }
-
-      // Добавляем параметры фильтров в запрос
+      // Добавляем параметры фильтров
       if (stockFilter !== 'all') {
-        url.searchParams.append('stock', stockFilter);
+        params.stockFilter = stockFilter;
       }
       if (visibilityFilter !== 'all') {
-        url.searchParams.append('visibility', visibilityFilter);
+        params.visibilityFilter = visibilityFilter;
       }
 
-      url.searchParams.append('page', currentPage.toString());
-      url.searchParams.append('limit', pageSize.toString());
-
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке товаров');
-      }
-
-      const data = await response.json();
-      setProducts(data.products);
-      setTotalPages(data.pagination.totalPages);
+      const result = await getProducts(params);
+      setProducts(result.products);
+      setTotalPages(result.pagination.pages);
 
       // Сбрасываем выделение
       setSelectedProducts(new Set());
       setAllSelected(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
       console.error('Ошибка при загрузке товаров:', err);
       toast.error('Не удалось загрузить товары');
     } finally {
-      setIsLoading(false);
       setIsApplyingFilters(false);
     }
   }, [
@@ -166,6 +159,7 @@ export default function ProductsList({
     stockFilter,
     visibilityFilter,
     includeSubcategories,
+    getProducts,
   ]);
 
   // Загрузка товаров при изменении categoryId или страницы
@@ -221,19 +215,10 @@ export default function ProductsList({
     isVisible: boolean
   ) => {
     try {
-      const response = await fetch(`/api/catalog/products/${productId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          isVisible: !isVisible,
-        }),
+      await bulkUpdateProducts({
+        productIds: [productId],
+        data: { isVisible: !isVisible }
       });
-
-      if (!response.ok) {
-        throw new Error('Ошибка при изменении видимости товара');
-      }
 
       // Обновляем состояние товаров
       setProducts((prevProducts) =>
@@ -268,13 +253,7 @@ export default function ProductsList({
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/catalog/products/${deleteProductId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Ошибка при удалении товара');
-      }
+      await deleteProduct(deleteProductId);
 
       // Обновляем список товаров
       setProducts((prevProducts) =>
@@ -370,19 +349,7 @@ export default function ProductsList({
 
     setIsDeleting(true);
     try {
-      const response = await fetch('/api/catalog/products/bulk-delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productIds: Array.from(selectedProducts),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Ошибка при удалении товаров');
-      }
+      await bulkDeleteProducts(Array.from(selectedProducts));
 
       // Обновляем список товаров
       setProducts((prevProducts) =>
@@ -408,20 +375,10 @@ export default function ProductsList({
     if (selectedProducts.size === 0) return;
 
     try {
-      const response = await fetch('/api/catalog/products/bulk-update', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productIds: Array.from(selectedProducts),
-          data: { isVisible },
-        }),
+      await bulkUpdateProducts({
+        productIds: Array.from(selectedProducts),
+        data: { isVisible }
       });
-
-      if (!response.ok) {
-        throw new Error('Ошибка при обновлении товаров');
-      }
 
       // Обновляем состояние товаров
       setProducts((prevProducts) =>
@@ -445,20 +402,10 @@ export default function ProductsList({
     if (selectedProducts.size === 0) return;
 
     try {
-      const response = await fetch('/api/catalog/products/bulk-update', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productIds: Array.from(selectedProducts),
-          data: { categoryId: newCategoryId },
-        }),
+      await bulkUpdateProducts({
+        productIds: Array.from(selectedProducts),
+        data: { categoryId: newCategoryId }
       });
-
-      if (!response.ok) {
-        throw new Error('Ошибка при обновлении категории товаров');
-      }
 
       // Обновляем список товаров
       await fetchProducts();
@@ -479,18 +426,22 @@ export default function ProductsList({
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/catalog/categories');
-        if (response.ok) {
-          const data = await response.json();
-          setCategories(data);
-        }
+        const result = await getCategories(true); // includeHidden = true
+        
+        // Преобразуем Category[] в CategoryWithChildren[]
+        const categoriesWithChildren: CategoryWithChildren[] = result.categories.map(category => ({
+          ...category,
+          children: [],
+        }));
+        
+        setCategories(categoriesWithChildren);
       } catch (error) {
         console.error('Ошибка при загрузке категорий:', error);
       }
     };
 
     fetchCategories();
-  }, []);
+  }, [getCategories]);
 
   // Обработчик открытия диалога массового удаления
   const openBulkDeleteDialog = () => {
@@ -704,28 +655,6 @@ export default function ProductsList({
                     {/* Отображаем информацию о категории, если товар не из текущей просматриваемой категории */}
                     {product.category && product.category.id !== categoryId && (
                       <div className="text-xs text-gray-500 mt-1 flex items-center">
-                        {product.category?.parent && (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                if (
-                                  onCategorySelect &&
-                                  product.category?.parent?.id
-                                ) {
-                                  onCategorySelect(product.category.parent.id);
-                                } else if (product.category?.parent?.id) {
-                                  window.location.href = `?category=${product.category.parent.id}`;
-                                }
-                              }}
-                              className="text-blue-500 hover:underline"
-                            >
-                              {product.category.parent.name}
-                            </button>
-                            <span className="mx-1">→</span>
-                          </>
-                        )}
                         <button
                           onClick={(e) => {
                             e.preventDefault();

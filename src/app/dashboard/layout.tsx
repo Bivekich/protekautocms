@@ -78,8 +78,14 @@ const navigationItems = [
     adminOnly: false,
   },
   {
-    title: 'API Документация',
-    href: '/dashboard/api-docs',
+    title: 'GraphQL Документация',
+    href: '/dashboard/graphql-docs',
+    icon: Settings,
+    adminOnly: false,
+  },
+  {
+    title: 'Настройки',
+    href: '/dashboard/settings',
     icon: Settings,
     adminOnly: false,
   },

@@ -32,6 +32,45 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Pagination } from '@/components/ui/pagination';
 
+// GraphQL запросы
+const GET_MEDIA_QUERY = `
+  query GetMedia($page: Int, $limit: Int, $type: String, $search: String) {
+    media(page: $page, limit: $limit, type: $type, search: $search) {
+      media {
+        id
+        name
+        url
+        type
+        size
+        mimeType
+        alt
+        description
+        userId
+        createdAt
+        updatedAt
+        user {
+          id
+          name
+          email
+          role
+        }
+      }
+      pagination {
+        total
+        page
+        limit
+        pages
+      }
+    }
+  }
+`;
+
+const DELETE_MEDIA_MUTATION = `
+  mutation DeleteMedia($id: ID!) {
+    deleteMedia(id: $id)
+  }
+`;
+
 // Типы данных
 interface Media {
   id: string;
@@ -45,6 +84,12 @@ interface Media {
   userId: string;
   createdAt: string;
   updatedAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
 }
 
 interface PaginationInfo {
@@ -54,10 +99,31 @@ interface PaginationInfo {
   pages: number;
 }
 
-interface MediaResponse {
-  media: Media[];
-  pagination: PaginationInfo;
-}
+// Функция для выполнения GraphQL запросов
+const executeGraphQL = async (query: string, variables?: Record<string, unknown>) => {
+  const response = await fetch('/api/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      variables,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Network error');
+  }
+
+  const result = await response.json();
+
+  if (result.errors) {
+    throw new Error(result.errors[0]?.message || 'GraphQL error');
+  }
+
+  return result.data;
+};
 
 export const MediaGallery = () => {
   const [media, setMedia] = useState<Media[]>([]);
@@ -78,18 +144,20 @@ export const MediaGallery = () => {
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Загрузка медиа-файлов
-  const fetchMedia = async (page = 1) => {
+  const fetchMedia = async (page = 1, search = '') => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/media?page=${page}&limit=20`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch media');
-      }
-      const data: MediaResponse = await response.json();
-      setMedia(data.media);
-      setPagination(data.pagination);
+      const data = await executeGraphQL(GET_MEDIA_QUERY, {
+        page,
+        limit: 20,
+        search: search || undefined,
+      });
+      
+      setMedia(data.media.media);
+      setPagination(data.media.pagination);
     } catch (error) {
       console.error('Error fetching media:', error);
       toast.error('Ошибка при загрузке медиа-файлов');
@@ -105,7 +173,14 @@ export const MediaGallery = () => {
 
   // Обработка изменения страницы
   const handlePageChange = (page: number) => {
-    fetchMedia(page);
+    setCurrentPage(page);
+    fetchMedia(page, searchQuery);
+  };
+
+  // Обработка поиска
+  const handleSearch = () => {
+    setCurrentPage(1);
+    fetchMedia(1, searchQuery);
   };
 
   // Обработка выбора файла
@@ -133,43 +208,34 @@ export const MediaGallery = () => {
 
     try {
       setUploading(true);
-
-      // Создаем объект FormData
+      
+      // Создаем FormData для отправки файла через REST API
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('alt', alt);
-      formData.append('description', description);
+      if (alt) formData.append('alt', alt);
+      if (description) formData.append('description', description);
 
-      // Отправляем запрос
-      const response = await fetch('/api/media', {
+      const response = await fetch('/api/media/upload', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload file');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка при загрузке файла');
       }
 
-      // Получаем ответ
-      await response.json();
-
-      // Обновляем список файлов
-      fetchMedia();
-
-      // Закрываем диалог
+      // Успешная загрузка
+      toast.success('Файл успешно загружен');
       setUploadDialogOpen(false);
-
-      // Очищаем форму
       setSelectedFile(null);
       setPreviewUrl(null);
       setAlt('');
       setDescription('');
-
-      // Показываем уведомление
-      toast.success('Файл успешно загружен');
+      fetchMedia(currentPage, searchQuery);
     } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error('Ошибка при загрузке файла');
+      console.error('Ошибка при загрузке файла:', error);
+      toast.error(error instanceof Error ? error.message : 'Ошибка при загрузке файла');
     } finally {
       setUploading(false);
     }
@@ -182,28 +248,19 @@ export const MediaGallery = () => {
     }
 
     try {
-      const response = await fetch(`/api/media/${selectedMedia.id}`, {
-        method: 'DELETE',
+      const data = await executeGraphQL(DELETE_MEDIA_MUTATION, {
+        id: selectedMedia.id,
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete file');
+      if (data.deleteMedia) {
+        toast.success('Файл успешно удален');
+        setDetailsDialogOpen(false);
+        setDeleteDialogOpen(false);
+        setSelectedMedia(null);
+        fetchMedia(currentPage, searchQuery);
       }
-
-      // Обновляем список файлов
-      fetchMedia();
-
-      // Закрываем диалоги
-      setDetailsDialogOpen(false);
-      setDeleteDialogOpen(false);
-
-      // Сбрасываем выбранный файл
-      setSelectedMedia(null);
-
-      // Показываем уведомление
-      toast.success('Файл успешно удален');
     } catch (error) {
-      console.error('Error deleting file:', error);
+      console.error('Ошибка при удалении файла:', error);
       toast.error('Ошибка при удалении файла');
     }
   };
@@ -258,14 +315,22 @@ export const MediaGallery = () => {
     <div className="space-y-6">
       {/* Верхняя панель с поиском и кнопкой загрузки */}
       <div className="flex justify-between items-center">
-        <div className="relative w-64">
+        <div className="relative w-64 flex gap-2">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Поиск по имени файла"
             className="pl-8"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSearch();
+              }
+            }}
           />
+          <Button onClick={handleSearch} variant="outline">
+            Найти
+          </Button>
         </div>
 
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
@@ -372,7 +437,7 @@ export const MediaGallery = () => {
           </div>
         ) : (
           // Список файлов
-          media.map((item) => (
+          media.map((item: Media) => (
             <Card
               key={item.id}
               className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"

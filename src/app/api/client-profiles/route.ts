@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/session';
 import { logClientProfileAction } from '@/lib/audit';
@@ -41,10 +41,10 @@ export async function GET() {
  * POST /api/client-profiles
  * Создание нового профиля клиента
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(req);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },

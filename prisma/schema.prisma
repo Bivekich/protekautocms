@@ -21,6 +21,7 @@ model User {
   updatedAt        DateTime   @updatedAt
   actionsAgainst   AuditLog[] @relation("TargetUserAuditLogs")
   auditLogs        AuditLog[] @relation("UserAuditLogs")
+  media            Media[]
 }
 
 model AuditLog {
@@ -92,6 +93,7 @@ model Media {
   userId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([type])

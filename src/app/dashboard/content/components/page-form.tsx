@@ -4,12 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { toast } from 'sonner';
+import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import {
   Form,
   FormControl,
@@ -19,90 +16,94 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { toast } from 'sonner';
+import { useContentGraphQL, Page, UpdatePageInput, CreatePageInput } from '@/hooks/useContentGraphQL';
 
 const formSchema = z.object({
-  title: z.string().min(1, 'Название страницы обязательно'),
-  slug: z
-    .string()
-    .min(1, 'URL страницы обязателен')
-    .regex(
-      /^[a-z0-9-]+$/,
-      'URL может содержать только строчные буквы, цифры и дефисы'
-    ),
+  title: z.string().min(1, 'Название обязательно'),
+  slug: z.string().min(1, 'Slug обязателен'),
   description: z.string().optional(),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
-
 interface PageFormProps {
-  initialData?: {
-    id: string;
-    title: string;
-    slug: string;
-    description?: string | null;
-    isActive: boolean;
-  };
+  initialData?: Page;
 }
 
-export const PageForm = ({ initialData }: PageFormProps = {}) => {
+export const PageForm = ({ initialData }: PageFormProps) => {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { updatePage, createPage } = useContentGraphQL();
 
-  const form = useForm<FormValues>({
+  const isEditMode = !!initialData;
+
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData
-      ? {
-          title: initialData.title,
-          slug: initialData.slug,
-          description: initialData.description || '',
-          isActive: initialData.isActive,
-        }
-      : {
-          title: '',
-          slug: '',
-          description: '',
-          isActive: true,
-        },
+    defaultValues: {
+      title: initialData?.title || '',
+      slug: initialData?.slug || '',
+      description: initialData?.description || '',
+      isActive: initialData?.isActive ?? true,
+    },
   });
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      setIsLoading(true);
+      setLoading(true);
+      
+      if (isEditMode && initialData) {
+        const input: UpdatePageInput = {
+          title: values.title,
+          slug: values.slug,
+          description: values.description,
+          isActive: values.isActive,
+        };
 
-      const response = await fetch(
-        `/api/pages${initialData ? `/${initialData.id}` : ''}`,
-        {
-          method: initialData ? 'PATCH' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(values),
-        }
-      );
+        await updatePage(initialData.id, input);
+        toast.success('Страница обновлена');
+      } else {
+        const input: CreatePageInput = {
+          title: values.title,
+          slug: values.slug,
+          description: values.description,
+          isActive: values.isActive,
+        };
 
-      if (!response.ok) {
-        throw new Error('Что-то пошло не так');
+        await createPage(input);
+        toast.success('Страница создана');
+        router.push('/dashboard/content'); // Перенаправляем на список страниц после создания
       }
 
-      toast.success(initialData ? 'Страница обновлена' : 'Страница создана');
-      router.push('/dashboard/content');
       router.refresh();
     } catch (error) {
       toast.error('Что-то пошло не так');
       console.error(error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <Card>
-          <CardContent className="space-y-4 pt-6">
+    <Card>
+      <CardHeader>
+        <CardTitle>Основная информация</CardTitle>
+        <CardDescription>
+          Основные настройки страницы сайта
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <FormField
               control={form.control}
               name="title"
@@ -110,39 +111,9 @@ export const PageForm = ({ initialData }: PageFormProps = {}) => {
                 <FormItem>
                   <FormLabel>Название страницы</FormLabel>
                   <FormControl>
-                    <Input placeholder="Например: Контакты" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="slug"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL страницы</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Например: contacts" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    URL страницы на сайте (без слешей)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Описание (необязательно)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Краткое описание страницы"
+                    <Input
+                      disabled={loading}
+                      placeholder="Название страницы"
                       {...field}
                     />
                   </FormControl>
@@ -150,20 +121,62 @@ export const PageForm = ({ initialData }: PageFormProps = {}) => {
                 </FormItem>
               )}
             />
-
+            <FormField
+              control={form.control}
+              name="slug"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Slug (URL)</FormLabel>
+                  <FormControl>
+                    <Input
+                      disabled={loading}
+                      placeholder="page-url"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    URL страницы (например: contacts, about)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Описание</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      disabled={loading}
+                      placeholder="Описание страницы"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Краткое описание страницы для SEO
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="isActive"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
-                    <FormLabel>Активна</FormLabel>
+                    <FormLabel className="text-base">
+                      Активная страница
+                    </FormLabel>
                     <FormDescription>
-                      Отображать страницу на сайте
+                      Показывать страницу на сайте
                     </FormDescription>
                   </div>
                   <FormControl>
                     <Switch
+                      disabled={loading}
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
@@ -171,22 +184,12 @@ export const PageForm = ({ initialData }: PageFormProps = {}) => {
                 </FormItem>
               )}
             />
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push('/dashboard/content')}
-              disabled={isLoading}
-            >
-              Отмена
+            <Button disabled={loading} type="submit">
+              {isEditMode ? 'Сохранить изменения' : 'Создать страницу'}
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {initialData ? 'Сохранить изменения' : 'Создать страницу'}
-            </Button>
-          </CardFooter>
-        </Card>
-      </form>
-    </Form>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   );
 };

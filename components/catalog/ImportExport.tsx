@@ -43,10 +43,35 @@ export default function ImportExport() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/catalog/categories');
+        // GraphQL запрос для загрузки категорий
+        const categoriesQuery = `
+          query GetCategories {
+            categoriesList(includeHidden: true) {
+              categories {
+                id
+                name
+                parentId
+                level
+              }
+            }
+          }
+        `;
+
+        const response = await fetch('/api/graphql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: categoriesQuery,
+          }),
+        });
+
         if (response.ok) {
-          const data = await response.json();
-          setCategories(data);
+          const result = await response.json();
+          if (result.data?.categoriesList?.categories) {
+            setCategories(result.data.categoriesList.categories);
+          }
         } else {
           console.error('Ошибка при загрузке категорий');
         }
@@ -85,50 +110,65 @@ export default function ImportExport() {
       // Показываем сообщение о начале экспорта
       toast.loading('Подготовка файла для экспорта...');
 
+      // GraphQL мутация для экспорта
+      const exportMutation = `
+        mutation ExportCatalog($input: ExportInput!) {
+          exportCatalog(input: $input)
+        }
+      `;
+
       // Формируем данные для запроса
-      const exportData = {
-        format: exportFormat,
-        includeImages: exportOptions.includeImages,
-        includeCategories: exportOptions.includeCategories,
-        includeOptions: exportOptions.includeOptions,
-        includeCharacteristics: exportOptions.includeCharacteristics,
-        categoryId:
-          selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
+      const variables = {
+        input: {
+          format: exportFormat,
+          includeImages: exportOptions.includeImages,
+          includeCategories: exportOptions.includeCategories,
+          includeOptions: exportOptions.includeOptions,
+          includeCharacteristics: exportOptions.includeCharacteristics,
+          categoryId: selectedCategoryId !== 'all' ? selectedCategoryId : null,
+        },
       };
 
-      // Отправляем запрос на сервер для экспорта
-      const response = await fetch('/api/catalog/export', {
+      // Отправляем GraphQL запрос
+      const response = await fetch('/api/graphql', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(exportData),
+        body: JSON.stringify({
+          query: exportMutation,
+          variables,
+        }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка при экспорте товаров');
+        throw new Error('Ошибка при выполнении запроса');
       }
 
-      // Получаем blob из ответа
-      const blob = await response.blob();
+      const result = await response.json();
+
+      if (result.errors && result.errors.length > 0) {
+        throw new Error(result.errors[0].message);
+      }
+
+      // Получаем base64 данные из результата
+      const base64Data = result.data.exportCatalog;
+
+      // Создаем blob из base64 данных
+      const byteCharacters = atob(base64Data.split(',')[1]); // Убираем префикс "data:text/csv;charset=utf-8;base64,"
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'text/csv;charset=utf-8' });
 
       // Создаем URL для скачивания
       const url = window.URL.createObjectURL(blob);
 
       // Создаем временную ссылку и имитируем клик по ней
       const a = document.createElement('a');
-
-      // Получаем имя файла из заголовка Content-Disposition или используем дефолтное
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'export.' + (exportFormat === 'csv' ? 'csv' : 'xlsx');
-
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
-        }
-      }
+      const filename = `export_${new Date().toISOString().split('T')[0]}.${exportFormat === 'csv' ? 'csv' : 'xlsx'}`;
 
       a.href = url;
       a.download = filename;

@@ -31,6 +31,7 @@ const updateProductSchema = z.object({
       })
     )
     .optional(),
+  imageUrls: z.array(z.string().url()).optional(), // Поддержка старого формата
   characteristics: z
     .array(
       z.object({
@@ -271,6 +272,64 @@ export async function PATCH(
             where: { id: existingOption.id },
           });
         }
+      }
+    }
+
+    // Обработка изображений, если они предоставлены
+    if (validatedData.images || validatedData.imageUrls) {
+      // Сначала удаляем все существующие изображения
+      await prisma.productImage.deleteMany({
+        where: { productId: id },
+      });
+
+      // Определяем источник изображений
+      let imagesToCreate: Array<{ url: string; alt?: string; order: number }> = [];
+      
+      if (validatedData.images) {
+        // Используем images в формате объектов
+        imagesToCreate = validatedData.images.map((image, index) => ({
+          url: image.url,
+          alt: image.alt || '',
+          order: image.order || index,
+        }));
+      } else if (validatedData.imageUrls) {
+        // Преобразуем imageUrls в формат объектов
+        imagesToCreate = validatedData.imageUrls.map((url, index) => ({
+          url,
+          alt: `Изображение товара ${index + 1}`,
+          order: index,
+        }));
+      }
+
+      // Создаем новые изображения
+      if (imagesToCreate.length > 0) {
+        await prisma.productImage.createMany({
+          data: imagesToCreate.map((image) => ({
+            url: image.url,
+            alt: image.alt || '',
+            order: image.order,
+            productId: id,
+          })),
+        });
+      }
+    }
+
+    // Обработка характеристик, если они предоставлены
+    if (validatedData.characteristics) {
+      // Сначала удаляем все существующие характеристики
+      await prisma.productCharacteristic.deleteMany({
+        where: { productId: id },
+      });
+
+      // Создаем новые характеристики
+      if (validatedData.characteristics.length > 0) {
+        await prisma.productCharacteristic.createMany({
+          data: validatedData.characteristics.map((char) => ({
+            name: char.name,
+            value: char.value,
+            productId: id,
+          })),
+        });
       }
     }
 

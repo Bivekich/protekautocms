@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Folder, Plus, Search, Loader2 } from 'lucide-react';
 import ProductsList from './ProductsList';
-import { Category } from '@/types/catalog';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -17,6 +16,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { useCatalogGraphQL, Category } from '@/hooks/useCatalogGraphQL';
 
 // Типы для компонента
 export interface CategoryContentProps {
@@ -28,8 +28,6 @@ export default function CategoryContent({
   categoryId,
   onCategorySelect,
 }: CategoryContentProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [subcategories, setSubcategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,40 +43,28 @@ export default function CategoryContent({
   const [isAddSubcategoryDialogOpen, setIsAddSubcategoryDialogOpen] =
     useState(false);
 
+  // Используем GraphQL хук
+  const { loading: isLoading, error, getCategories, getCategory } = useCatalogGraphQL();
+
   // Загрузка данных категории
   const fetchCategoryData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
     try {
-      // Формирование URL с параметрами
-      const url = new URL('/api/catalog/categories', window.location.origin);
-      if (categoryId && categoryId !== 'all') {
-        url.searchParams.append('id', categoryId);
-      }
-
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке данных категории');
-      }
-
-      const data = await response.json();
-
       if (categoryId === 'all') {
         // Если выбрана категория "Все товары", показываем все категории верхнего уровня
+        const result = await getCategories(false);
         setCategory(null);
-        setSubcategories(data.filter((cat: Category) => !cat.parentId));
-      } else {
-        // Если выбрана конкретная категория, показываем ее и ее подкатегории
-        setCategory(data);
-        setSubcategories(data.subcategories || []);
+        setSubcategories(result.categories.filter((cat: Category) => !cat.parentId));
+      } else if (categoryId) {
+        // Если выбрана конкретная категория, загружаем её данные
+        const categoryData = await getCategory(categoryId);
+        setCategory(categoryData);
+        setSubcategories(categoryData.subcategories || []);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
       console.error('Ошибка при загрузке данных категории:', err);
-    } finally {
-      setIsLoading(false);
+      toast.error('Ошибка при загрузке данных категории');
     }
-  }, [categoryId]);
+  }, [categoryId, getCategories, getCategory]);
 
   // Загрузка данных категории при изменении categoryId
   useEffect(() => {

@@ -11,7 +11,7 @@ export async function GET(
 ) {
   const { id } = await props.params;
   try {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(request);
 
     if (!currentUser) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });

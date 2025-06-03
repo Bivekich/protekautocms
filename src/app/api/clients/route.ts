@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma, Client } from '@prisma/client';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/session';
 import { logClientAction } from '@/lib/audit';
 
 // CORS заголовки
@@ -110,10 +110,10 @@ export async function GET(req: Request) {
  * POST /api/clients
  * Создание нового клиента
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(req);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },

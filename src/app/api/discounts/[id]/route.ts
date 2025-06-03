@@ -20,14 +20,14 @@ export async function OPTIONS() {
  * Получение информации о конкретной скидке
  */
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
 
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(request);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -76,7 +76,7 @@ export async function PUT(
     const { id } = await params;
 
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(request);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -227,14 +227,14 @@ export async function PUT(
  * Удаление скидки
  */
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
 
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(request);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },

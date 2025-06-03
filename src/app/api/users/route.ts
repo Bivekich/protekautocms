@@ -5,9 +5,9 @@ import { logAction } from '@/lib/audit';
 import { getCurrentUser, isAdmin } from '@/lib/session';
 
 // Получение списка пользователей
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const isUserAdmin = await isAdmin();
+    const isUserAdmin = await isAdmin(request);
 
     if (!isUserAdmin) {
       return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 });
@@ -19,19 +19,20 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
-        createdAt: true,
         avatarUrl: true,
+        createdAt: true,
+        twoFactorEnabled: true,
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
 
-    return NextResponse.json(users);
+    return NextResponse.json({ users });
   } catch (error) {
     console.error('Ошибка при получении пользователей:', error);
     return NextResponse.json(
-      { error: 'Ошибка при получении пользователей' },
+      { error: 'Внутренняя ошибка сервера' },
       { status: 500 }
     );
   }
@@ -40,8 +41,8 @@ export async function GET() {
 // Создание нового пользователя
 export async function POST(request: NextRequest) {
   try {
-    const currentUser = await getCurrentUser();
-    const isUserAdmin = await isAdmin();
+    const currentUser = await getCurrentUser(request);
+    const isUserAdmin = await isAdmin(request);
 
     if (!currentUser || !isUserAdmin) {
       return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 });

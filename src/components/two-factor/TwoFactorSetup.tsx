@@ -18,6 +18,37 @@ type TwoFactorSetupProps = {
   onComplete?: () => void;
 };
 
+// GraphQL запросы и мутации
+const TWO_FACTOR_SETUP_QUERY = `
+  query TwoFactorSetup {
+    twoFactorSetup {
+      twoFactorEnabled
+      secret
+      qrCodeUrl
+    }
+  }
+`;
+
+const ENABLE_TWO_FACTOR_MUTATION = `
+  mutation EnableTwoFactor($input: VerifyTwoFactorInput!) {
+    enableTwoFactor(input: $input) {
+      success
+      message
+      twoFactorEnabled
+    }
+  }
+`;
+
+const DISABLE_TWO_FACTOR_MUTATION = `
+  mutation DisableTwoFactor {
+    disableTwoFactor {
+      success
+      message
+      twoFactorEnabled
+    }
+  }
+`;
+
 export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
   const { data: session, update } = useSession();
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +59,28 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
   const [token, setToken] = useState('');
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
+  // Функция для выполнения GraphQL запросов
+  const executeGraphQL = async (query: string, variables?: Record<string, unknown>) => {
+    const response = await fetch('/api/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.errors) {
+      throw new Error(result.errors[0].message);
+    }
+
+    return result.data;
+  };
+
   // Загружаем данные для настройки 2FA
   useEffect(() => {
     const fetchSetupData = async () => {
@@ -35,20 +88,14 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch('/api/auth/two-factor/setup');
-        const data = await response.json();
+        const data = await executeGraphQL(TWO_FACTOR_SETUP_QUERY);
+        const setup = data.twoFactorSetup;
 
-        if (!response.ok) {
-          throw new Error(
-            data.error || 'Не удалось загрузить данные для настройки 2FA'
-          );
-        }
-
-        if (data.twoFactorEnabled) {
+        if (setup.twoFactorEnabled) {
           setTwoFactorEnabled(true);
         } else {
-          setQrCode(data.qrCodeUrl);
-          setSecret(data.secret);
+          setQrCode(setup.qrCodeUrl);
+          setSecret(setup.secret);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Произошла ошибка');
@@ -71,34 +118,33 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
       setError(null);
       setSuccess(null);
 
-      const response = await fetch('/api/auth/two-factor/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token, secret }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Не удалось проверить код');
-      }
-
-      setSuccess('Двухфакторная аутентификация успешно настроена');
-      setTwoFactorEnabled(true);
-
-      // Обновляем сессию пользователя, чтобы уведомление исчезло
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          requiresTwoFactor: true,
+      const data = await executeGraphQL(ENABLE_TWO_FACTOR_MUTATION, {
+        input: {
+          token,
+          secret,
         },
       });
 
-      if (onComplete) {
-        onComplete();
+      const result = data.enableTwoFactor;
+
+      if (result.success) {
+        setSuccess(result.message);
+        setTwoFactorEnabled(true);
+
+        // Обновляем сессию пользователя
+        await update({
+          ...session,
+          user: {
+            ...session?.user,
+            requiresTwoFactor: true,
+          },
+        });
+
+        if (onComplete) {
+          onComplete();
+        }
+      } else {
+        throw new Error('Не удалось включить двухфакторную аутентификацию');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
@@ -114,35 +160,29 @@ export const TwoFactorSetup = ({ onComplete }: TwoFactorSetupProps) => {
       setError(null);
       setSuccess(null);
 
-      const response = await fetch('/api/auth/two-factor/disable', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const data = await executeGraphQL(DISABLE_TWO_FACTOR_MUTATION);
+      const result = data.disableTwoFactor;
 
-      const data = await response.json();
+      if (result.success) {
+        setSuccess(result.message);
+        setTwoFactorEnabled(false);
+        setQrCode(null);
+        setSecret(null);
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Не удалось отключить 2FA');
-      }
+        // Обновляем сессию пользователя
+        await update({
+          ...session,
+          user: {
+            ...session?.user,
+            requiresTwoFactor: false,
+          },
+        });
 
-      setSuccess('Двухфакторная аутентификация успешно отключена');
-      setTwoFactorEnabled(false);
-      setQrCode(null);
-      setSecret(null);
-
-      // Обновляем сессию пользователя при отключении 2FA
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          requiresTwoFactor: false,
-        },
-      });
-
-      if (onComplete) {
-        onComplete();
+        if (onComplete) {
+          onComplete();
+        }
+      } else {
+        throw new Error('Не удалось отключить двухфакторную аутентификацию');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');

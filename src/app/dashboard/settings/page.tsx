@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { User, Lock, Save, Camera } from 'lucide-react';
+import { Lock, Save, Camera } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,74 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
+// GraphQL запросы и мутации
+const CURRENT_USER_QUERY = `
+  query CurrentUser {
+    currentUser {
+      id
+      name
+      email
+      role
+      avatarUrl
+      requiresTwoFactor
+    }
+  }
+`;
+
+const UPDATE_USER_MUTATION = `
+  mutation UpdateUser($input: UpdateUserInput!) {
+    updateUser(input: $input) {
+      id
+      name
+      email
+      role
+      avatarUrl
+    }
+  }
+`;
+
+const CHANGE_PASSWORD_MUTATION = `
+  mutation ChangePassword($input: ChangePasswordInput!) {
+    changePassword(input: $input) {
+      id
+      name
+      email
+    }
+  }
+`;
+
+const UPLOAD_AVATAR_BASE64_MUTATION = `
+  mutation UploadAvatarBase64($base64Image: String!) {
+    uploadAvatarBase64(base64Image: $base64Image) {
+      id
+      name
+      avatarUrl
+    }
+  }
+`;
+
+// Функция для выполнения GraphQL запросов
+async function fetchGraphQL(query: string, variables?: Record<string, unknown>) {
+  const response = await fetch('/api/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      variables,
+    }),
+  });
+
+  const result = await response.json();
+
+  if (result.errors) {
+    throw new Error(result.errors[0].message);
+  }
+
+  return result.data;
+}
 
 // Схема валидации формы профиля
 const profileFormSchema = z.object({
@@ -67,6 +135,7 @@ export default function SettingsPage() {
     email: string;
     role: string;
     avatarUrl?: string;
+    requiresTwoFactor?: boolean;
   } | null>(null);
   const [isProfileSubmitting, setIsProfileSubmitting] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
@@ -92,24 +161,23 @@ export default function SettingsPage() {
     },
   });
 
-  // Загрузка данных пользователя
+  // Загрузка данных пользователя через GraphQL
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/settings');
-
-        if (!response.ok) {
+        const data = await fetchGraphQL(CURRENT_USER_QUERY);
+        
+        if (!data.currentUser) {
           throw new Error('Ошибка при загрузке данных пользователя');
         }
-
-        const data = await response.json();
-        setUserData(data);
+        
+        setUserData(data.currentUser);
 
         // Инициализация формы профиля с полученными данными
         profileForm.reset({
-          name: data.name,
-          email: data.email,
+          name: data.currentUser.name,
+          email: data.currentUser.email,
         });
       } catch (error) {
         console.error('Ошибка при загрузке данных пользователя:', error);
@@ -122,27 +190,21 @@ export default function SettingsPage() {
     fetchUserData();
   }, [profileForm]);
 
-  // Обработчик отправки формы профиля
+  // Обработчик отправки формы профиля через GraphQL
   const handleProfileSubmit = async (
     values: z.infer<typeof profileFormSchema>
   ) => {
     setIsProfileSubmitting(true);
 
     try {
-      const response = await fetch('/api/settings', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
+      const data = await fetchGraphQL(UPDATE_USER_MUTATION, {
+        input: {
+          name: values.name,
+          email: values.email,
         },
-        body: JSON.stringify(values),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Ошибка при обновлении профиля');
-      }
-
-      const updatedUser = await response.json();
+      const updatedUser = data.updateUser;
       setUserData(updatedUser);
 
       // Обновляем сессию с новыми данными
@@ -166,28 +228,19 @@ export default function SettingsPage() {
     }
   };
 
-  // Обработчик отправки формы пароля
+  // Обработчик отправки формы пароля через GraphQL
   const handlePasswordSubmit = async (
     values: z.infer<typeof passwordFormSchema>
   ) => {
     setIsPasswordSubmitting(true);
 
     try {
-      const response = await fetch('/api/settings', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      await fetchGraphQL(CHANGE_PASSWORD_MUTATION, {
+        input: {
           currentPassword: values.currentPassword,
           newPassword: values.newPassword,
-        }),
+        },
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Ошибка при изменении пароля');
-      }
 
       toast.success('Пароль успешно изменен');
       passwordForm.reset();
@@ -201,7 +254,7 @@ export default function SettingsPage() {
     }
   };
 
-  // Обработчик загрузки аватарки
+  // Обработчик загрузки аватарки через GraphQL с base64
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -221,21 +274,16 @@ export default function SettingsPage() {
     try {
       setIsAvatarUploading(true);
 
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/settings/avatar', {
-        method: 'POST',
-        body: formData,
+      // Преобразуем файл в base64
+      const base64Image = await fileToBase64(file);
+      
+      // Отправляем запрос на загрузку аватара
+      const data = await fetchGraphQL(UPLOAD_AVATAR_BASE64_MUTATION, {
+        base64Image,
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Ошибка при загрузке аватарки');
-      }
-
-      const updatedUser = await response.json();
-      setUserData(updatedUser);
+      const updatedUser = data.uploadAvatarBase64;
+      setUserData((prev) => prev ? { ...prev, avatarUrl: updatedUser.avatarUrl } : null);
 
       // Обновляем сессию с новыми данными
       await update({
@@ -254,27 +302,41 @@ export default function SettingsPage() {
       );
     } finally {
       setIsAvatarUploading(false);
-      // Сбрасываем значение input, чтобы можно было загрузить тот же файл повторно
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
-  if (!userData && isLoading) {
+  // Функция для преобразования файла в base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Обработчик клика по кнопке выбора файла
+  const handleAvatarButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Если данные загружаются, показываем загрузочное состояние
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <p className="text-muted-foreground">Загрузка данных...</p>
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center h-[500px]">
+          <p>Загрузка...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Настройки</h1>
+    <div className="container mx-auto py-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Настройки</h1>
         <p className="text-muted-foreground">
-          Управление настройками вашего профиля
+          Управление настройками вашего аккаунта
         </p>
       </div>
 
@@ -285,62 +347,61 @@ export default function SettingsPage() {
           <TabsTrigger value="security">Безопасность</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="space-y-4">
+        <TabsContent value="profile">
           <Card>
             <CardHeader>
               <CardTitle>Профиль</CardTitle>
               <CardDescription>
-                Управление информацией вашего профиля
+                Обновите информацию о вашем профиле
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-                <div className="relative">
-                  <Avatar className="h-20 w-20">
+            <CardContent>
+              <div className="mb-6">
+                <div className="flex items-center gap-4">
+                  <Avatar className="w-20 h-20">
                     <AvatarImage
                       src={userData?.avatarUrl || ''}
-                      alt={userData?.name || ''}
+                      alt={userData?.name || 'Аватар'}
                     />
-                    <AvatarFallback className="text-2xl">
-                      {userData?.name?.charAt(0) || 'U'}
+                    <AvatarFallback>
+                      {userData?.name
+                        ?.split(' ')
+                        .map((n) => n[0])
+                        .join('')}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-2 -right-2">
-                    <div className="relative">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8 rounded-full"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isAvatarUploading}
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        disabled={isAvatarUploading}
-                      />
-                    </div>
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mb-1"
+                      onClick={handleAvatarButtonClick}
+                      disabled={isAvatarUploading}
+                    >
+                      {isAvatarUploading ? (
+                        'Загрузка...'
+                      ) : (
+                        <>
+                          <Camera className="mr-2 h-4 w-4" />
+                          Изменить аватар
+                        </>
+                      )}
+                    </Button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                      accept="image/*"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG, GIF. Максимум 5MB.
+                    </p>
                   </div>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium">{userData?.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {userData?.email}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Роль:{' '}
-                    {userData?.role === 'ADMIN' ? 'Администратор' : 'Менеджер'}
-                  </p>
                 </div>
               </div>
 
-              <Separator />
+              <Separator className="my-6" />
 
               <Form {...profileForm}>
                 <form
@@ -354,23 +415,20 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>Имя</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="Иван Иванов"
-                              className="pl-10"
-                              disabled={isProfileSubmitting}
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            placeholder="Ваше имя"
+                            {...field}
+                            disabled={isProfileSubmitting}
+                          />
                         </FormControl>
                         <FormDescription>
-                          Ваше полное имя, которое будет отображаться в системе
+                          Ваше полное имя, которое будет отображаться в системе.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={profileForm.control}
                     name="email"
@@ -379,41 +437,47 @@ export default function SettingsPage() {
                         <FormLabel>Email</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="example@protek.ru"
-                            disabled={isProfileSubmitting}
+                            placeholder="email@example.com"
                             {...field}
+                            disabled={isProfileSubmitting}
                           />
                         </FormControl>
                         <FormDescription>
-                          Ваш email адрес, используемый для входа в систему
+                          Ваш email адрес, который используется для входа в
+                          систему.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" disabled={isProfileSubmitting}>
-                    {isProfileSubmitting ? (
-                      'Сохранение...'
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        Сохранить изменения
-                      </>
-                    )}
-                  </Button>
+
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={isProfileSubmitting}
+                      className="w-[150px]"
+                    >
+                      {isProfileSubmitting ? (
+                        'Сохранение...'
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Сохранить
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </form>
               </Form>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="password" className="space-y-4">
+        <TabsContent value="password">
           <Card>
             <CardHeader>
               <CardTitle>Пароль</CardTitle>
-              <CardDescription>
-                Изменение пароля для входа в систему
-              </CardDescription>
+              <CardDescription>Изменение пароля аккаунта</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...passwordForm}>
@@ -428,21 +492,18 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>Текущий пароль</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              type="password"
-                              placeholder="••••••••"
-                              className="pl-10"
-                              disabled={isPasswordSubmitting}
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            placeholder="••••••••"
+                            type="password"
+                            {...field}
+                            disabled={isPasswordSubmitting}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={passwordForm.control}
                     name="newPassword"
@@ -450,24 +511,21 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>Новый пароль</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              type="password"
-                              placeholder="••••••••"
-                              className="pl-10"
-                              disabled={isPasswordSubmitting}
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            placeholder="••••••••"
+                            type="password"
+                            {...field}
+                            disabled={isPasswordSubmitting}
+                          />
                         </FormControl>
                         <FormDescription>
-                          Пароль должен содержать минимум 6 символов
+                          Минимум 6 символов. Используйте надежный пароль.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={passwordForm.control}
                     name="confirmPassword"
@@ -475,38 +533,41 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>Подтверждение пароля</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              type="password"
-                              placeholder="••••••••"
-                              className="pl-10"
-                              disabled={isPasswordSubmitting}
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            placeholder="••••••••"
+                            type="password"
+                            {...field}
+                            disabled={isPasswordSubmitting}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" disabled={isPasswordSubmitting}>
-                    {isPasswordSubmitting ? (
-                      'Сохранение...'
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        Изменить пароль
-                      </>
-                    )}
-                  </Button>
+
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={isPasswordSubmitting}
+                      className="w-[150px]"
+                    >
+                      {isPasswordSubmitting ? (
+                        'Сохранение...'
+                      ) : (
+                        <>
+                          <Lock className="mr-2 h-4 w-4" />
+                          Сохранить
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </form>
               </Form>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="security" className="space-y-4">
+        <TabsContent value="security">
           <Card>
             <CardHeader>
               <CardTitle>Безопасность</CardTitle>
@@ -526,14 +587,27 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    (window.location.href = '/dashboard/settings/two-factor')
-                  }
-                >
-                  Настроить двухфакторную аутентификацию
-                </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${userData?.requiresTwoFactor ? 'bg-green-500' : 'bg-amber-500'}`}></div>
+                    <span className="text-sm font-medium">
+                      {userData?.requiresTwoFactor 
+                        ? 'Включено' 
+                        : 'Отключено'}
+                    </span>
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      (window.location.href = '/dashboard/settings/two-factor')
+                    }
+                  >
+                    {userData?.requiresTwoFactor 
+                      ? 'Управление настройками 2FA' 
+                      : 'Настроить двухфакторную аутентификацию'}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

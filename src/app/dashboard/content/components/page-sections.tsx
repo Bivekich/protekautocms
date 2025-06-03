@@ -27,6 +27,13 @@ import { DeliveryForm } from './section-forms/delivery-form';
 import { WelcomeForm } from './section-forms/welcome-form';
 import { OfferingsForm } from './section-forms/offerings-form';
 import { AboutCompanyForm } from './section-forms/about-company-form';
+import { useContentGraphQL, CreatePageSectionInput, PageSection } from '@/hooks/useContentGraphQL';
+
+// Определяем интерфейс FlexiblePageSection, поддерживающий как string, так и Date для полей createdAt и updatedAt
+interface FlexiblePageSection extends Omit<PageSection, 'createdAt' | 'updatedAt'> {
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
 
 // Определяем типы для различных секций
 type HeroContent = {
@@ -137,10 +144,7 @@ type AboutCompanyContent = {
   }>;
 };
 
-type Section = {
-  id: string;
-  type: string;
-  order: number;
+type Section = FlexiblePageSection & {
   content:
     | HeroContent
     | BenefitsContent
@@ -155,21 +159,18 @@ type Section = {
     | OfferingsContent
     | AboutCompanyContent
     | JsonValue;
-  isActive: boolean;
-  pageId: string;
-  createdAt: Date;
-  updatedAt: Date;
 };
 
 interface PageSectionsProps {
   pageId: string;
-  sections: Section[];
+  sections: Section[] | FlexiblePageSection[];
 }
 
 export const PageSections = ({ pageId, sections }: PageSectionsProps) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('contacts');
+  const { createPageSection, deletePageSection } = useContentGraphQL();
 
   const contactsSection = sections.find(
     (section) => section.type === 'contacts'
@@ -317,71 +318,59 @@ export const PageSections = ({ pageId, sections }: PageSectionsProps) => {
             methods: [
               'Наличными',
               'Банковской картой',
-              'По QR-Коду через мобильное приложение банка',
-              'СБП через мобильное приложение банка',
+              'Онлайн переводом',
             ],
           },
           businesses: {
             title: 'Для юридических лиц',
-            imageUrl: 'https://example.com/business-payment.jpg',
+            imageUrl: 'https://example.com/businesses-payment.jpg',
             methods: [
-              'Безналичный расчет с НДС',
-              'НДС 20%',
-              'Доплата при оплате с НДС не требуется',
+              'Безналичный расчет',
+              'Банковской картой',
+              'Отсрочка платежа',
             ],
           },
           important: {
-            title: 'Важно',
+            title: 'Важно знать',
             points: [
-              '100% предоплата для всех заказов',
-              'Предоплата меньшего размера только для предзаказа',
+              'Оплата должна быть произведена в течение 3 дней',
+              'При оплате картой комиссия отсутствует',
+              'Возможна отсрочка платежа для постоянных клиентов',
             ],
           },
         };
       } else if (type === 'delivery') {
         initialContent = {
           title: 'Доставка',
-          subtitle:
-            'Мы заботимся о вашем времени и комфорте, поэтому предлагаем удобные варианты доставки',
+          subtitle: 'Быстрая и надежная доставка по всей России',
           moscow: {
-            title: 'В пределах Москвы и области',
+            title: 'По Москве и МО',
             details: [
-              'Собственная доставка на следующий день после заказа',
-              'Стоимость доставки зависит от суммы заказа',
-              'Подробности уточняйте у менеджера',
+              'Доставка в день заказа при оформлении до 12:00',
+              'Стоимость доставки от 300 рублей',
+              'Бесплатная доставка при заказе от 5000 рублей',
             ],
           },
           regions: {
-            title: 'В регионы',
+            title: 'По регионам России',
             details: [
-              'СДЕК',
-              'ПОЧТА',
-              'Деловые линии',
               'Доставка транспортными компаниями',
-              'Заказы, оформленные до 12:00, доставляем в тот же день',
-              'Доставка в ТК – бесплатно',
+              'Сроки доставки 1-7 дней в зависимости от региона',
+              'Возможность доставки до терминала или до двери',
             ],
           },
           companies: [
             {
-              name: 'Я-Доставка',
-              imageUrl: 'https://example.com/ya-delivery.jpg',
-            },
-            {
               name: 'СДЭК',
-              imageUrl: 'https://example.com/cdek.jpg',
-            },
-            {
-              name: 'Деловые линии',
-              imageUrl: 'https://example.com/delovie-linii.jpg',
+              imageUrl: 'https://example.com/cdek-logo.jpg',
             },
             {
               name: 'Boxberry',
-              imageUrl: 'https://example.com/boxberry.jpg',
+              imageUrl: 'https://example.com/boxberry-logo.jpg',
             },
             {
-              name: 'Почта России',
-              imageUrl: 'https://example.com/pochta-russia.jpg',
+              name: 'ПЭК',
+              imageUrl: 'https://example.com/pek-logo.jpg',
             },
           ],
         };
@@ -435,26 +424,18 @@ export const PageSections = ({ pageId, sections }: PageSectionsProps) => {
         };
       }
 
-      const response = await fetch(`/api/pages/${pageId}/sections`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type,
-          order: maxOrder + 1,
-          content: initialContent,
-          isActive: true,
-        }),
-      });
+      const input: CreatePageSectionInput = {
+        pageId,
+        type,
+        order: maxOrder + 1,
+        content: initialContent,
+        isActive: true,
+      };
 
-      if (!response.ok) {
-        throw new Error('Что-то пошло не так');
-      }
+      await createPageSection(input);
 
       toast.success(`Секция "${type}" добавлена`);
       router.refresh();
-      setActiveTab(type);
     } catch (error) {
       toast.error('Что-то пошло не так');
       console.error(error);
@@ -467,16 +448,7 @@ export const PageSections = ({ pageId, sections }: PageSectionsProps) => {
     try {
       setIsLoading(true);
 
-      const response = await fetch(
-        `/api/pages/${pageId}/sections/${sectionId}`,
-        {
-          method: 'DELETE',
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Что-то пошло не так');
-      }
+      await deletePageSection(sectionId);
 
       toast.success(`Секция "${type}" удалена`);
       router.refresh();

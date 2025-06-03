@@ -88,9 +88,77 @@ interface Manager {
   name: string;
   email: string;
   role: 'ADMIN' | 'MANAGER';
-  createdAt: string;
   avatarUrl?: string;
+  requiresTwoFactor?: boolean;
 }
+
+// GraphQL запросы и мутации
+const USERS_QUERY = `
+  query Users {
+    users {
+      id
+      name
+      email
+      role
+      avatarUrl
+      requiresTwoFactor
+    }
+  }
+`;
+
+const CREATE_USER_MUTATION = `
+  mutation CreateUser($input: CreateUserInput!) {
+    createUser(input: $input) {
+      id
+      name
+      email
+      role
+      avatarUrl
+      requiresTwoFactor
+    }
+  }
+`;
+
+const UPDATE_USER_MUTATION = `
+  mutation UpdateUserAdmin($id: ID!, $input: UpdateUserAdminInput!) {
+    updateUserAdmin(id: $id, input: $input) {
+      id
+      name
+      email
+      role
+      avatarUrl
+      requiresTwoFactor
+    }
+  }
+`;
+
+const DELETE_USER_MUTATION = `
+  mutation DeleteUser($id: ID!) {
+    deleteUser(id: $id)
+  }
+`;
+
+// Функция для выполнения GraphQL запросов
+const executeGraphQL = async (query: string, variables?: Record<string, unknown>) => {
+  const response = await fetch('/api/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      variables,
+    }),
+  });
+
+  const result = await response.json();
+
+  if (result.errors) {
+    throw new Error(result.errors[0].message);
+  }
+
+  return result.data;
+};
 
 export default function ManagersPage() {
   const [managers, setManagers] = useState<Manager[]>([]);
@@ -100,16 +168,13 @@ export default function ManagersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentManager, setCurrentManager] = useState<Manager | null>(null);
 
-  // Загрузка менеджеров
+  // Загрузка менеджеров через GraphQL
   useEffect(() => {
     const fetchManagers = async () => {
       try {
-        const response = await fetch('/api/users');
-        if (!response.ok) {
-          throw new Error('Ошибка при загрузке менеджеров');
-        }
-        const data = await response.json();
-        setManagers(data);
+        setIsLoading(true);
+        const data = await executeGraphQL(USERS_QUERY);
+        setManagers(data.users || []);
       } catch (error) {
         console.error('Ошибка при загрузке менеджеров:', error);
         toast.error('Не удалось загрузить список менеджеров');
@@ -148,21 +213,11 @@ export default function ManagersPage() {
     try {
       setIsLoading(true);
 
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
+      const data = await executeGraphQL(CREATE_USER_MUTATION, {
+        input: values,
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Ошибка при создании менеджера');
-      }
-
-      const newManager = await response.json();
-      setManagers([...managers, newManager]);
+      setManagers([...managers, data.createUser]);
       setIsAddDialogOpen(false);
       form.reset();
       toast.success('Менеджер успешно добавлен');
@@ -186,29 +241,19 @@ export default function ManagersPage() {
       setIsLoading(true);
 
       // Если пароль пустой, удаляем его из запроса
-      const payload: Partial<z.infer<typeof formSchema>> = { ...values };
-      if (!payload.password) {
-        delete payload.password;
+      const input: Partial<z.infer<typeof formSchema>> = { ...values };
+      if (!input.password) {
+        delete input.password;
       }
 
-      const response = await fetch(`/api/users/${currentManager.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+      const data = await executeGraphQL(UPDATE_USER_MUTATION, {
+        id: currentManager.id,
+        input,
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Ошибка при обновлении менеджера');
-      }
-
-      const updatedManager = await response.json();
 
       setManagers(
         managers.map((manager) =>
-          manager.id === currentManager.id ? updatedManager : manager
+          manager.id === currentManager.id ? data.updateUserAdmin : manager
         )
       );
 
@@ -232,22 +277,30 @@ export default function ManagersPage() {
     try {
       setIsLoading(true);
 
-      const response = await fetch(`/api/users/${id}`, {
-        method: 'DELETE',
+      await executeGraphQL(DELETE_USER_MUTATION, {
+        id,
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Ошибка при удалении менеджера');
-      }
-
       setManagers(managers.filter((manager) => manager.id !== id));
-      toast.success('Менеджер удален');
+      toast.success('Менеджер успешно удален');
     } catch (error) {
       console.error('Ошибка при удалении менеджера:', error);
-      toast.error(
-        error instanceof Error ? error.message : 'Ошибка при удалении менеджера'
-      );
+      
+      let errorMessage = 'Ошибка при удалении менеджера';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Нельзя удалить самого себя')) {
+          errorMessage = 'Вы не можете удалить свою собственную учетную запись';
+        } else if (error.message.includes('Недостаточно прав')) {
+          errorMessage = 'У вас недостаточно прав для удаления пользователей';
+        } else if (error.message.includes('Пользователь не найден')) {
+          errorMessage = 'Пользователь не найден';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -264,7 +317,7 @@ export default function ManagersPage() {
   };
 
   // Фильтрация менеджеров по поисковому запросу
-  const filteredManagers = managers.filter(
+  const filteredManagers = (managers || []).filter(
     (manager) =>
       manager.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       manager.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -414,7 +467,7 @@ export default function ManagersPage() {
                   <TableHead>Имя</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Роль</TableHead>
-                  <TableHead>Дата создания</TableHead>
+                  <TableHead>2FA</TableHead>
                   <TableHead className="text-right">Действия</TableHead>
                 </TableRow>
               </TableHeader>
@@ -459,7 +512,7 @@ export default function ManagersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {new Date(manager.createdAt).toLocaleDateString()}
+                        {manager.requiresTwoFactor ? 'Да' : 'Нет'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

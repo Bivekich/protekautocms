@@ -1,9 +1,9 @@
-import { Metadata } from 'next';
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
+'use client';
 
-import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { useEffect, useState } from 'react';
+import { redirect } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+
 import {
   Card,
   CardContent,
@@ -12,25 +12,56 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PagesList } from './components/pages-list';
+import { useContentGraphQL, Page } from '@/hooks/useContentGraphQL';
+import { Loader2 } from 'lucide-react';
 
-export const metadata: Metadata = {
-  title: 'Управление контентом | ProtekCMS',
-  description: 'Управление контентом сайта',
-};
+export default function ContentPage() {
+  const { data: session, status } = useSession();
+  const { getPages, loading, error } = useContentGraphQL();
+  const [pages, setPages] = useState<Page[]>([]);
 
-export default async function ContentPage() {
-  const session = await getServerSession(authOptions);
+  useEffect(() => {
+    const fetchPages = async () => {
+      try {
+        const pagesData = await getPages(true); // включаем скрытые страницы
+        setPages(pagesData);
+      } catch (err) {
+        console.error('Ошибка при загрузке страниц:', err);
+      }
+    };
+
+    if (session) {
+      fetchPages();
+    }
+  }, [session, getPages]);
+
+  if (status === 'loading') {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   if (!session) {
     redirect('/auth/login');
   }
 
-  // Получаем список всех страниц из базы данных
-  const pages = await db.page.findMany({
-    orderBy: {
-      title: 'asc',
-    },
-  });
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="text-red-500">Ошибка: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6">

@@ -87,11 +87,12 @@ export const PagesList = ({ pages }: PagesListProps) => {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/dashboard/content/${page.id}`}>
-                        Редактировать
-                      </Link>
-                    </Button>
+                    <Link 
+                      href={`/dashboard/content/${page.id}`}
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Редактировать
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}

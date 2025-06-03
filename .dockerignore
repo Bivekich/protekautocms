@@ -1,0 +1,39 @@
+# Node.js и NPM
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Next.js
+.next
+out
+
+# Локальные файлы
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Файлы системы и редакторов
+.DS_Store
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Другие файлы и директории
+README.md
+LICENSE
+*.md
+.cursor
+.github 

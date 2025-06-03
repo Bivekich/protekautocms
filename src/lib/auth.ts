@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { getToken } from 'next-auth/jwt';
+import { NextRequest } from 'next/server';
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -176,7 +178,7 @@ interface UserData {
 export async function getCurrentUser(): Promise<UserData | null> {
   try {
     const cookieStore = await cookies();
-    const authToken = await cookieStore.get('authToken')?.value;
+    const authToken = cookieStore.get('authToken')?.value;
 
     if (!authToken) return null;
 
@@ -200,6 +202,33 @@ export async function getCurrentUser(): Promise<UserData | null> {
     return user;
   } catch (error) {
     console.error('Ошибка при получении текущего пользователя:', error);
+    return null;
+  }
+}
+
+/**
+ * Получает пользователя из JWT токена NextAuth без проблем с async APIs
+ * @param request - NextRequest объект
+ * @returns Данные пользователя или null
+ */
+export async function getUserFromRequest(request: NextRequest): Promise<UserData | null> {
+  try {
+    // Используем getToken который работает напрямую с запросом
+    const token = await getToken({ 
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET 
+    });
+    
+    if (!token) return null;
+    
+    return {
+      id: token.id as string,
+      name: token.name as string,
+      email: token.email as string,
+      role: token.role as string,
+    };
+  } catch (error) {
+    console.error('Ошибка при получении пользователя из запроса:', error);
     return null;
   }
 }

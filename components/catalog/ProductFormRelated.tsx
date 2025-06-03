@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { X, Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,11 +10,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, X } from 'lucide-react';
-import { RelatedProduct } from './ProductForm';
 import Image from 'next/image';
+import { RelatedProduct } from './ProductForm';
+import { useCatalogGraphQL, Category } from '@/hooks/useCatalogGraphQL';
 import ProductTreeView, { ProductWithCategory } from './ProductTreeView';
-import { Category } from './CategoryTreeView';
 
 // Расширяем интерфейс для отображения товаров
 interface ProductDisplay extends RelatedProduct {
@@ -37,59 +37,53 @@ export default function ProductFormRelated({
   const [dialogType, setDialogType] = useState<'related' | 'complementary'>(
     'related'
   );
-
-  // Состояние для хранения категорий и товаров
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<ProductWithCategory[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Используем GraphQL хуки
+  const { getCategories, getProducts } = useCatalogGraphQL();
 
   // Загрузка категорий и товаров при монтировании компонента
   useEffect(() => {
     const fetchCategoriesAndProducts = async () => {
       setLoading(true);
       try {
-        // Загружаем категории - изменяем запрос, чтобы получить все категории, включая неактивные
-        const categoriesResponse = await fetch(
-          '/api/catalog/categories?includeHidden=true'
-        );
-        const categoriesData = await categoriesResponse.json();
-
-        // Загружаем товары
-        const productsResponse = await fetch('/api/catalog/products?limit=500');
-        const productsData = await productsResponse.json();
+        // Загружаем категории через GraphQL
+        const categoriesResult = await getCategories(true); // includeHidden = true
+        
+        // Загружаем товары через GraphQL
+        const productsResult = await getProducts({
+          limit: 500
+        });
 
         // Преобразуем товары в формат ProductWithCategory
-        const productsWithCategory = productsData.products.map(
-          (product: {
-            id: string;
-            name: string;
-            sku: string;
-            mainImage?: string;
-            categoryId?: string;
-          }) => ({
-            id: product.id,
-            name: product.name,
-            sku: product.sku,
-            image: product.mainImage,
-            categoryId: product.categoryId || 'uncategorized',
-          })
-        );
+        const productsWithCategory = productsResult.products.map(product => ({
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          image: product.images?.[0]?.url,
+          categoryId: product.categoryId || 'uncategorized',
+        }));
 
         // Убедимся, что категория "без категории" существует для товаров без категории
+        const categoriesData = [...categoriesResult.categories];
         if (
-          productsWithCategory.some(
-            (p: ProductWithCategory) => p.categoryId === 'uncategorized'
-          )
+          productsWithCategory.some(p => p.categoryId === 'uncategorized')
         ) {
-          const hasUncategorized = categoriesData.some(
-            (c: Category) => c.id === 'uncategorized'
-          );
+          const hasUncategorized = categoriesData.some(c => c.id === 'uncategorized');
           if (!hasUncategorized) {
             categoriesData.push({
               id: 'uncategorized',
               name: 'Без категории',
+              slug: 'uncategorized',
               parentId: null,
               level: 0,
+              order: 999,
+              isVisible: false,
+              includeSubcategoryProducts: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
             });
           }
         }
@@ -105,7 +99,7 @@ export default function ProductFormRelated({
     };
 
     fetchCategoriesAndProducts();
-  }, []);
+  }, [getCategories, getProducts]);
 
   // Открытие диалога для добавления связанных товаров
   const handleOpenDialog = (type: 'related' | 'complementary') => {

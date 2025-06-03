@@ -7,12 +7,12 @@ import { getCurrentUser, isAdmin } from '@/lib/session';
 // Получение пользователя по ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const isUserAdmin = await isAdmin();
-    const currentUser = await getCurrentUser();
-    const { id } = await params;
+    const isUserAdmin = await isAdmin(request);
+    const currentUser = await getCurrentUser(request);
+    const { id } = await context.params;
 
     if (!currentUser) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
@@ -58,12 +58,12 @@ export async function GET(
 // Обновление пользователя
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await getCurrentUser();
-    const isUserAdmin = await isAdmin();
-    const { id } = await params;
+    const currentUser = await getCurrentUser(request);
+    const isUserAdmin = await isAdmin(request);
+    const { id } = await context.params;
 
     if (!currentUser) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
@@ -161,12 +161,12 @@ export async function PATCH(
 // Удаление пользователя
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await getCurrentUser();
-    const isUserAdmin = await isAdmin();
-    const { id } = await params;
+    const currentUser = await getCurrentUser(request);
+    const isUserAdmin = await isAdmin(request);
+    const { id } = await context.params;
 
     if (!currentUser || !isUserAdmin) {
       return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 });

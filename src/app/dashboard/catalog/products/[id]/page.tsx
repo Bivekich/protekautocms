@@ -1,20 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import {
-  ArrowLeft,
-  InfoIcon,
-  SettingsIcon,
-  TagIcon,
-  ListFilter,
-  LinkIcon,
-  Loader2,
-} from 'lucide-react';
-import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Loader2, LinkIcon, InfoIcon, ListFilter, SettingsIcon, TagIcon } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 
 // Импортируем компоненты форм с правильными относительными путями
@@ -29,6 +21,7 @@ import {
   RelatedProduct,
   ProductFormData,
 } from '../../../../../../components/catalog/ProductForm';
+import { useCatalogGraphQL, Category } from '@/hooks/useCatalogGraphQL';
 
 // Тип для товара (то же самое, что в add-product)
 type Product = {
@@ -116,7 +109,10 @@ export default function EditProductPage() {
     relatedProducts: [],
     complementaryProducts: [],
   });
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  // Используем GraphQL хуки
+  const { getProduct, getCategories } = useCatalogGraphQL();
 
   const productId =
     typeof params.id === 'string'
@@ -127,50 +123,59 @@ export default function EditProductPage() {
 
   // Загрузка данных товара при монтировании компонента
   useEffect(() => {
-    const fetchProduct = async () => {
+    const fetchData = async () => {
       if (!productId) return;
 
       setIsLoading(true);
       try {
-        // Загружаем товар
-        const response = await fetch(`/api/catalog/products/${productId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setProduct({
-            id: data.id,
-            name: data.name,
-            sku: data.sku,
-            description: data.description || '',
-            wholesalePrice: data.wholesalePrice,
-            retailPrice: data.retailPrice,
-            weight: data.weight || 0,
-            dimensions: data.dimensions || {
-              length: 0,
-              width: 0,
-              height: 0,
-            },
-            stock: data.stock,
-            visible: data.isVisible,
-            applyDiscounts: data.applyDiscounts || true,
-            categories: data.categoryId ? [data.categoryId] : [],
-            unit: data.unit || 'шт',
-            imageUrls: data.imageUrls || [],
-            videoUrl: data.videoUrl || '',
-            options: data.options || [],
-            characteristics: data.characteristics || [],
-            relatedProducts: data.relatedProducts || [],
-            complementaryProducts: data.complementaryProducts || [],
-          });
-        } else {
-          toast.error('Не удалось загрузить данные товара');
-        }
+        // Загружаем товар через GraphQL
+        const productData = await getProduct(productId);
+        
+        console.log('Данные товара из GraphQL:', productData);
+        console.log('Изображения товара:', productData.images);
+        
+        setProduct({
+          id: productData.id,
+          name: productData.name,
+          sku: productData.sku,
+          description: productData.description || '',
+          wholesalePrice: productData.wholesalePrice,
+          retailPrice: productData.retailPrice,
+          weight: 0, // TODO: добавить в GraphQL схему
+          dimensions: {
+            length: 0,
+            width: 0,
+            height: 0,
+          }, // TODO: добавить в GraphQL схему
+          stock: productData.stock,
+          visible: productData.isVisible,
+          applyDiscounts: true, // TODO: добавить в GraphQL схему
+          categories: productData.categoryId ? [productData.categoryId] : [],
+          unit: 'шт', // TODO: добавить в GraphQL схему
+          imageUrls: productData.images?.map(img => img.url) || [],
+          videoUrl: '', // TODO: добавить в GraphQL схему
+          options: (productData.options || []).map(option => ({
+            id: option.id,
+            name: option.name,
+            type: (option.type === 'single' || option.type === 'multiple') ? option.type : 'single',
+            values: (option.values || []).map(value => ({
+              id: value.id,
+              value: value.value,
+              price: value.price,
+            })),
+          })), // Преобразуем опции из GraphQL в нужный формат
+          characteristics: (productData.characteristics || []).map(char => ({
+            id: char.id,
+            name: char.name,
+            value: char.value,
+          })), // Преобразуем характеристики из GraphQL в нужный формат
+          relatedProducts: [],
+          complementaryProducts: [],
+        });
 
-        // Загружаем категории
-        const categoriesResponse = await fetch('/api/catalog/categories');
-        if (categoriesResponse.ok) {
-          const categoriesData = await categoriesResponse.json();
-          setCategories(categoriesData);
-        }
+        // Загружаем категории через GraphQL
+        const categoriesResult = await getCategories();
+        setCategories(categoriesResult.categories);
       } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
         toast.error('Произошла ошибка при загрузке данных');
@@ -179,16 +184,19 @@ export default function EditProductPage() {
       }
     };
 
-    fetchProduct();
-  }, [productId]);
+    fetchData();
+  }, [productId, getProduct, getCategories]);
 
   // Обработчик изменения основной информации
   const handleBasicInfoChange = (data: Partial<ProductFormData>) => {
+    console.log('handleBasicInfoChange вызван с данными:', data);
+    
     // Преобразуем данные из формы обратно в формат Product
     const productData: Partial<Product> = {};
 
     // Обрабатываем специфические поля
     if ('images' in data) {
+      console.log('Обновляем изображения:', data.images);
       productData.imageUrls = data.images;
     }
     if ('video' in data) {
@@ -205,8 +213,14 @@ export default function EditProductPage() {
     if ('weight' in data) productData.weight = data.weight;
     if ('dimensions' in data) productData.dimensions = data.dimensions;
 
+    console.log('Обновляем состояние товара:', productData);
+    
     // Обновляем состояние
-    setProduct((prev) => ({ ...prev, ...productData }));
+    setProduct((prev) => {
+      const newProduct = { ...prev, ...productData };
+      console.log('Новое состояние товара:', newProduct);
+      return newProduct;
+    });
   };
 
   // Обработчик изменения настроек
@@ -323,6 +337,10 @@ export default function EditProductPage() {
       return;
     }
 
+    console.log('Сохраняем товар:', product);
+    console.log('Опции товара:', product.options);
+    console.log('Характеристики товара:', product.characteristics);
+
     setIsSaving(true);
     try {
       // Формируем данные для отправки
@@ -335,6 +353,8 @@ export default function EditProductPage() {
         stock: product.stock,
         isVisible: product.visible,
         categoryId: product.categories[0] || null,
+        imageUrls: product.imageUrls, // Отправляем изображения в простом формате
+        characteristics: product.characteristics, // Добавляем характеристики
         // Добавляем опции товара
         options: product.options.map((option) => ({
           id: option.id,
@@ -349,6 +369,8 @@ export default function EditProductPage() {
         // Остальные поля
       };
 
+      console.log('Отправляем данные в API:', apiData);
+
       // Отправляем запрос на обновление товара
       const response = await fetch(`/api/catalog/products/${productId}`, {
         method: 'PATCH',
@@ -359,10 +381,13 @@ export default function EditProductPage() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Ответ от API:', result);
         toast.success('Товар успешно обновлен');
         router.push('/dashboard/catalog');
       } else {
         const errorData = await response.json();
+        console.error('Ошибка от API:', errorData);
         throw new Error(errorData.error || 'Ошибка при обновлении товара');
       }
     } catch (error) {

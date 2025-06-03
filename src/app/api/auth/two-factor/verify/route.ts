@@ -1,20 +1,22 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextResponse, NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 import { verifyTOTP, enableTwoFactor } from '@/lib/two-factor';
 import { db } from '@/lib/db';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const token = await getToken({ 
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET 
+    });
 
-    if (!session?.user?.email) {
+    if (!token?.email) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
     }
 
-    const { token, secret } = await request.json();
+    const { token: totpToken, secret } = await request.json();
 
-    if (!token || !secret) {
+    if (!totpToken || !secret) {
       return NextResponse.json(
         { error: 'Отсутствуют необходимые данные' },
         { status: 400 }
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
 
     // Получаем пользователя
     const user = await db.user.findUnique({
-      where: { email: session.user.email },
+      where: { email: token.email },
       select: { id: true },
     });
 
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     // Проверяем TOTP код
-    const isValid = verifyTOTP(token, secret);
+    const isValid = verifyTOTP(totpToken, secret);
 
     if (!isValid) {
       return NextResponse.json(

@@ -4,12 +4,8 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
-  Search,
   X,
-  Filter,
   Download,
-  User,
-  Shield,
   FileText,
   Trash2,
   Edit,
@@ -21,7 +17,6 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -37,11 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -60,6 +50,8 @@ interface AuditLog {
   details: string;
   userId: string;
   targetId?: string;
+  productId?: string;
+  targetType?: string;
   createdAt: string;
   user: {
     id: string;
@@ -68,13 +60,6 @@ interface AuditLog {
     role: string;
     avatarUrl?: string;
   };
-  targetUser?: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    avatarUrl?: string;
-  } | null;
 }
 
 // Тип для метаданных пагинации
@@ -83,6 +68,58 @@ interface PaginationMeta {
   limit: number;
   offset: number;
 }
+
+// GraphQL запрос для получения аудит логов
+const AUDIT_LOGS_QUERY = `
+  query AuditLogs($page: Int, $limit: Int, $targetType: String, $userId: String, $from: String, $to: String) {
+    auditLogs(page: $page, limit: $limit, targetType: $targetType, userId: $userId, from: $from, to: $to) {
+      data {
+        id
+        userId
+        action
+        targetType
+        targetId
+        details
+        productId
+        createdAt
+        user {
+          id
+          name
+          email
+          role
+          avatarUrl
+        }
+      }
+      meta {
+        total
+        limit
+        offset
+      }
+    }
+  }
+`;
+
+// Функция для выполнения GraphQL запросов
+const executeGraphQL = async (query: string, variables?: Record<string, unknown>) => {
+  const response = await fetch('/api/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      variables,
+    }),
+  });
+
+  const result = await response.json();
+
+  if (result.errors) {
+    throw new Error(result.errors[0].message);
+  }
+
+  return result.data;
+};
 
 // Функция для получения иконки действия
 const getActionIcon = (action: string) => {
@@ -103,8 +140,6 @@ const getActionIcon = (action: string) => {
 export default function AuditPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string | null>(null);
   const [userFilter, setUserFilter] = useState<string | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -114,6 +149,7 @@ export default function AuditPage() {
     limit: 50,
     offset: 0,
   });
+  const [currentPage, setCurrentPage] = useState(1);
   const [uniqueUsers, setUniqueUsers] = useState<
     Array<{
       id: string;
@@ -122,42 +158,29 @@ export default function AuditPage() {
     }>
   >([]);
 
-  // Эффект для дебаунса поискового запроса
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Загрузка данных аудита
+  // Загрузка данных аудита через GraphQL
   useEffect(() => {
     const fetchAuditLogs = async () => {
       try {
         setIsLoading(true);
 
-        // Формирование URL с параметрами
-        const params = new URLSearchParams();
-        if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
-        if (actionFilter) params.append('action', actionFilter);
-        if (userFilter) params.append('userId', userFilter);
-        params.append('limit', pagination.limit.toString());
-        params.append('offset', pagination.offset.toString());
+        const variables: Record<string, unknown> = {
+          page: currentPage,
+          limit: pagination.limit,
+        };
 
-        const response = await fetch(`/api/audit?${params.toString()}`);
+        if (actionFilter) variables.targetType = actionFilter;
+        if (userFilter) variables.userId = userFilter;
 
-        if (!response.ok) {
-          throw new Error('Ошибка при загрузке данных аудита');
-        }
+        const data = await executeGraphQL(AUDIT_LOGS_QUERY, variables);
+        const auditResult = data.auditLogs;
 
-        const { data, meta } = await response.json();
-        setAuditLogs(data);
-        setPagination(meta);
+        setAuditLogs(auditResult.data);
+        setPagination(auditResult.meta);
 
         // Извлечение уникальных пользователей для фильтра
         const users = new Map();
-        data.forEach((log: AuditLog) => {
+        auditResult.data.forEach((log: AuditLog) => {
           if (!users.has(log.user.id)) {
             users.set(log.user.id, {
               id: log.user.id,
@@ -176,13 +199,7 @@ export default function AuditPage() {
     };
 
     fetchAuditLogs();
-  }, [
-    debouncedSearchQuery,
-    actionFilter,
-    userFilter,
-    pagination.limit,
-    pagination.offset,
-  ]);
+  }, [actionFilter, userFilter, currentPage, pagination.limit]);
 
   // Открытие диалога с деталями
   const openDetailsDialog = (log: AuditLog) => {
@@ -192,287 +209,234 @@ export default function AuditPage() {
 
   // Экспорт логов в CSV
   const exportToCSV = () => {
-    try {
-      const headers = ['Дата', 'Пользователь', 'Действие', 'Детали', 'Цель'];
-      const csvContent = auditLogs.map((log) => [
-        format(new Date(log.createdAt), 'dd.MM.yyyy HH:mm:ss'),
-        log.user.name,
-        log.action,
-        log.details,
-        log.targetUser?.name || '-',
-      ]);
+    const headers = ['Дата', 'Пользователь', 'Действие', 'Детали', 'Цель'];
+    const csvContent = auditLogs.map((log) => [
+      log.createdAt && !isNaN(Date.parse(log.createdAt)) ? 
+        format(new Date(log.createdAt), 'dd.MM.yyyy HH:mm:ss') : 
+        'Неизвестно',
+      log.user.name,
+      log.action,
+      log.details || '-',
+      log.targetType || '-',
+    ]);
 
-      const csvString = [
-        headers.join(','),
-        ...csvContent.map((row) => row.join(',')),
-      ].join('\n');
+    const csvString = [headers, ...csvContent]
+      .map((row) => row.map((field) => `"${field}"`).join(','))
+      .join('\n');
 
-      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute(
-        'download',
-        `audit_log_${format(new Date(), 'yyyy-MM-dd')}.csv`
-      );
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `audit_logs_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-      toast.success('Экспорт выполнен успешно');
-    } catch (error) {
-      console.error('Ошибка при экспорте данных:', error);
-      toast.error('Ошибка при экспорте данных');
-    }
+    toast.success('Отчет экспортирован');
   };
 
-  // Обработчики пагинации
+  // Навигация по страницам
   const handlePrevPage = () => {
-    if (pagination.offset - pagination.limit >= 0) {
-      setPagination({
-        ...pagination,
-        offset: pagination.offset - pagination.limit,
-      });
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
     }
   };
 
   const handleNextPage = () => {
-    if (pagination.offset + pagination.limit < pagination.total) {
-      setPagination({
-        ...pagination,
-        offset: pagination.offset + pagination.limit,
-      });
+    const totalPages = Math.ceil(pagination.total / pagination.limit);
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
     }
   };
 
-  // Вычисление текущей страницы и общего количества страниц
-  const currentPage = Math.floor(pagination.offset / pagination.limit) + 1;
   const totalPages = Math.ceil(pagination.total / pagination.limit);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Аудит</h1>
-        <p className="text-muted-foreground">
-          История действий пользователей в системе
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto py-6 px-4">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Журнал аудита</h1>
+            <p className="text-muted-foreground">
+              Отслеживание действий пользователей в системе
+            </p>
+          </div>
+          <Button
+            onClick={exportToCSV}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Экспорт
+          </Button>
+        </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Журнал действий</CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Поиск..."
-                className="w-[200px] pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
+        {/* Фильтры */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Фильтры</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <Select
+                  value={actionFilter || 'all'}
+                  onValueChange={(value) => {
+                    setActionFilter(value === 'all' ? null : value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Тип действия" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все действия</SelectItem>
+                    <SelectItem value="LOGIN">Вход в систему</SelectItem>
+                    <SelectItem value="CREATE">Создание</SelectItem>
+                    <SelectItem value="UPDATE">Обновление</SelectItem>
+                    <SelectItem value="DELETE">Удаление</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <Select
+                  value={userFilter || 'all'}
+                  onValueChange={(value) => {
+                    setUserFilter(value === 'all' ? null : value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Пользователь" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все пользователи</SelectItem>
+                    {uniqueUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {(actionFilter || userFilter) && (
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-9 w-9"
-                  onClick={() => setSearchQuery('')}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setActionFilter(null);
+                    setUserFilter(null);
+                    setCurrentPage(1);
+                  }}
+                  className="gap-2"
                 >
                   <X className="h-4 w-4" />
+                  Очистить
                 </Button>
               )}
             </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Filter className="mr-2 h-4 w-4" />
-                  Фильтры
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Фильтры</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Настройте фильтры для журнала аудита
-                    </p>
-                  </div>
-                  <div className="grid gap-2">
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <label htmlFor="action" className="text-sm">
-                        Действие
-                      </label>
-                      <Select
-                        value={actionFilter || 'all'}
-                        onValueChange={(value) =>
-                          setActionFilter(value === 'all' ? null : value)
-                        }
-                      >
-                        <SelectTrigger id="action" className="col-span-2">
-                          <SelectValue placeholder="Все действия" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Все действия</SelectItem>
-                          <SelectItem value="LOGIN">Вход</SelectItem>
-                          <SelectItem value="CREATE">Создание</SelectItem>
-                          <SelectItem value="UPDATE">Обновление</SelectItem>
-                          <SelectItem value="DELETE">Удаление</SelectItem>
-                          <SelectItem value="CREATE_PAGE">
-                            Создание страницы
-                          </SelectItem>
-                          <SelectItem value="UPDATE_PAGE">
-                            Обновление страницы
-                          </SelectItem>
-                          <SelectItem value="DELETE_PAGE">
-                            Удаление страницы
-                          </SelectItem>
-                          <SelectItem value="CREATE_PAGE_SECTION">
-                            Создание секции
-                          </SelectItem>
-                          <SelectItem value="UPDATE_PAGE_SECTION">
-                            Обновление секции
-                          </SelectItem>
-                          <SelectItem value="DELETE_PAGE_SECTION">
-                            Удаление секции
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <label htmlFor="user" className="text-sm">
-                        Пользователь
-                      </label>
-                      <Select
-                        value={userFilter || 'all'}
-                        onValueChange={(value) =>
-                          setUserFilter(value === 'all' ? null : value)
-                        }
-                      >
-                        <SelectTrigger id="user" className="col-span-2">
-                          <SelectValue placeholder="Все пользователи" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Все пользователи</SelectItem>
-                          {uniqueUsers.map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setActionFilter(null);
-                      setUserFilter(null);
-                    }}
-                  >
-                    Сбросить фильтры
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Button variant="outline" size="sm" onClick={exportToCSV}>
-              <Download className="mr-2 h-4 w-4" />
-              Экспорт
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading && auditLogs.length === 0 ? (
-            <div className="flex justify-center py-6">
-              <p className="text-muted-foreground">Загрузка данных...</p>
+          </CardContent>
+        </Card>
+
+        {/* Таблица */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Записи аудита</CardTitle>
+              <div className="text-sm text-muted-foreground">
+                Найдено записей: {pagination.total}
+              </div>
             </div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Дата и время</TableHead>
-                    <TableHead>Действие</TableHead>
-                    <TableHead>Пользователь</TableHead>
-                    <TableHead>Детали</TableHead>
-                    <TableHead className="text-right">Действия</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditLogs.length === 0 ? (
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : auditLogs.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Записи не найдены</p>
+              </div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-center py-6 text-muted-foreground"
-                      >
-                        Записи не найдены
-                      </TableCell>
+                      <TableHead>Время</TableHead>
+                      <TableHead>Пользователь</TableHead>
+                      <TableHead>Действие</TableHead>
+                      <TableHead>Детали</TableHead>
+                      <TableHead>Цель</TableHead>
+                      <TableHead className="w-12"></TableHead>
                     </TableRow>
-                  ) : (
-                    auditLogs.map((log) => (
+                  </TableHeader>
+                  <TableBody>
+                    {auditLogs.map((log) => (
                       <TableRow key={log.id}>
                         <TableCell>
-                          {format(new Date(log.createdAt), 'dd.MM.yyyy HH:mm', {
-                            locale: ru,
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getActionIcon(log.action)}
-                            <span>
-                              {log.action === 'LOGIN' && 'Вход'}
-                              {log.action === 'CREATE' && 'Создание'}
-                              {log.action === 'UPDATE' && 'Обновление'}
-                              {log.action === 'DELETE' && 'Удаление'}
-                              {log.action === 'CREATE_PAGE' &&
-                                'Создание страницы'}
-                              {log.action === 'UPDATE_PAGE' &&
-                                'Обновление страницы'}
-                              {log.action === 'DELETE_PAGE' &&
-                                'Удаление страницы'}
-                              {log.action === 'CREATE_PAGE_SECTION' &&
-                                'Создание секции'}
-                              {log.action === 'UPDATE_PAGE_SECTION' &&
-                                'Обновление секции'}
-                              {log.action === 'DELETE_PAGE_SECTION' &&
-                                'Удаление секции'}
-                            </span>
+                          <div className="text-sm">
+                            {log.createdAt && !isNaN(Date.parse(log.createdAt)) ? 
+                              format(new Date(log.createdAt), 'dd.MM.yyyy') : 
+                              'Неизвестно'
+                            }
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {log.createdAt && !isNaN(Date.parse(log.createdAt)) ? 
+                              format(new Date(log.createdAt), 'HH:mm:ss') : 
+                              'Неизвестно'
+                            }
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8">
                               <AvatarImage
-                                src={log.user.avatarUrl || ''}
+                                src={log.user.avatarUrl}
                                 alt={log.user.name}
                               />
                               <AvatarFallback>
-                                {log.user.name.charAt(0)}
+                                {log.user.name.charAt(0).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <div>
                               <div className="font-medium">{log.user.name}</div>
-                              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                {log.user.role === 'ADMIN' ? (
-                                  <Shield className="h-3 w-3 text-blue-500" />
-                                ) : (
-                                  <User className="h-3 w-3 text-gray-500" />
-                                )}
-                                {log.user.role === 'ADMIN'
-                                  ? 'Администратор'
-                                  : 'Менеджер'}
+                              <div className="text-xs text-muted-foreground">
+                                {log.user.role}
                               </div>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[300px] truncate">
-                          {log.details}
-                          {log.targetUser && ` (${log.targetUser.name})`}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getActionIcon(log.action)}
+                            <span className="font-medium">{log.action}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell>
+                          <div className="max-w-xs truncate" title={log.details || ''}>
+                            {log.details || '-'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {log.targetType || '-'}
+                          </div>
+                          {log.targetId && (
+                            <div className="text-xs text-muted-foreground">
+                              ID: {log.targetId}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Dialog
                             open={isDetailsOpen && selectedLog?.id === log.id}
-                            onOpenChange={setIsDetailsOpen}
+                            onOpenChange={(open) => {
+                              setIsDetailsOpen(open);
+                              if (!open) setSelectedLog(null);
+                            }}
                           >
                             <DialogTrigger asChild>
                               <Button
@@ -480,92 +444,98 @@ export default function AuditPage() {
                                 size="sm"
                                 onClick={() => openDetailsDialog(log)}
                               >
-                                Подробнее
+                                <FileText className="h-4 w-4" />
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px]">
+                            <DialogContent className="max-w-2xl">
                               <DialogHeader>
-                                <DialogTitle>Детали действия</DialogTitle>
+                                <DialogTitle>Детали записи аудита</DialogTitle>
                                 <DialogDescription>
-                                  Подробная информация о действии в системе
+                                  Подробная информация о действии пользователя
                                 </DialogDescription>
                               </DialogHeader>
                               {selectedLog && (
-                                <div className="grid gap-4 py-4">
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <span className="text-sm font-medium">
-                                      Дата:
-                                    </span>
-                                    <span className="col-span-3">
-                                      {format(
-                                        new Date(selectedLog.createdAt),
-                                        'dd.MM.yyyy HH:mm:ss',
-                                        { locale: ru }
-                                      )}
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <span className="text-sm font-medium">
-                                      Действие:
-                                    </span>
-                                    <div className="col-span-3 flex items-center gap-2">
-                                      {getActionIcon(selectedLog.action)}
-                                      <span>
-                                        {selectedLog.action === 'LOGIN' &&
-                                          'Вход'}
-                                        {selectedLog.action === 'CREATE' &&
-                                          'Создание'}
-                                        {selectedLog.action === 'UPDATE' &&
-                                          'Обновление'}
-                                        {selectedLog.action === 'DELETE' &&
-                                          'Удаление'}
-                                        {selectedLog.action === 'CREATE_PAGE' &&
-                                          'Создание страницы'}
-                                        {selectedLog.action === 'UPDATE_PAGE' &&
-                                          'Обновление страницы'}
-                                        {selectedLog.action === 'DELETE_PAGE' &&
-                                          'Удаление страницы'}
-                                        {selectedLog.action ===
-                                          'CREATE_PAGE_SECTION' &&
-                                          'Создание секции'}
-                                        {selectedLog.action ===
-                                          'UPDATE_PAGE_SECTION' &&
-                                          'Обновление секции'}
-                                        {selectedLog.action ===
-                                          'DELETE_PAGE_SECTION' &&
-                                          'Удаление секции'}
-                                      </span>
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="text-sm font-medium">
+                                        Время
+                                      </label>
+                                      <p className="text-sm text-muted-foreground">
+                                        {selectedLog.createdAt && !isNaN(Date.parse(selectedLog.createdAt)) ? 
+                                          format(
+                                            new Date(selectedLog.createdAt),
+                                            'dd.MM.yyyy HH:mm:ss',
+                                            { locale: ru }
+                                          ) : 
+                                          'Неизвестно'
+                                        }
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium">
+                                        Действие
+                                      </label>
+                                      <p className="text-sm text-muted-foreground">
+                                        {selectedLog.action}
+                                      </p>
                                     </div>
                                   </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <span className="text-sm font-medium">
-                                      Пользователь:
-                                    </span>
-                                    <div className="col-span-3 flex items-center gap-2">
-                                      {selectedLog.user.role === 'ADMIN' ? (
-                                        <Shield className="h-4 w-4 text-blue-500" />
-                                      ) : (
-                                        <User className="h-4 w-4 text-gray-500" />
-                                      )}
-                                      {selectedLog.user.name}
+                                  <div>
+                                    <label className="text-sm font-medium">
+                                      Пользователь
+                                    </label>
+                                    <div className="flex items-center gap-3 mt-2">
+                                      <Avatar className="h-10 w-10">
+                                        <AvatarImage
+                                          src={selectedLog.user.avatarUrl}
+                                          alt={selectedLog.user.name}
+                                        />
+                                        <AvatarFallback>
+                                          {selectedLog.user.name
+                                            .charAt(0)
+                                            .toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                        <p className="font-medium">
+                                          {selectedLog.user.name}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                          {selectedLog.user.email} (
+                                          {selectedLog.user.role})
+                                        </p>
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <span className="text-sm font-medium">
-                                      Детали:
-                                    </span>
-                                    <span className="col-span-3">
-                                      {selectedLog.details}
-                                    </span>
-                                  </div>
-                                  {selectedLog.targetUser && (
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                      <span className="text-sm font-medium">
-                                        Цель:
-                                      </span>
-                                      <span className="col-span-3">
-                                        {selectedLog.targetUser.name}
-                                      </span>
+                                  {selectedLog.details && (
+                                    <div>
+                                      <label className="text-sm font-medium">
+                                        Детали
+                                      </label>
+                                      <p className="text-sm text-muted-foreground mt-1">
+                                        {selectedLog.details}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {selectedLog.targetType && (
+                                    <div>
+                                      <label className="text-sm font-medium">
+                                        Тип цели
+                                      </label>
+                                      <p className="text-sm text-muted-foreground">
+                                        {selectedLog.targetType}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {selectedLog.targetId && (
+                                    <div>
+                                      <label className="text-sm font-medium">
+                                        ID цели
+                                      </label>
+                                      <p className="text-sm text-muted-foreground">
+                                        {selectedLog.targetId}
+                                      </p>
                                     </div>
                                   )}
                                 </div>
@@ -574,53 +544,49 @@ export default function AuditPage() {
                           </Dialog>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableBody>
+                </Table>
 
-              {/* Пагинация */}
-              {auditLogs.length > 0 && (
-                <div className="flex items-center justify-between space-x-2 py-4">
+                {/* Пагинация */}
+                <div className="flex items-center justify-between mt-4">
                   <div className="text-sm text-muted-foreground">
-                    Показано {pagination.offset + 1}-
+                    Показано {pagination.offset + 1} -{' '}
                     {Math.min(
                       pagination.offset + pagination.limit,
                       pagination.total
                     )}{' '}
                     из {pagination.total} записей
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handlePrevPage}
-                      disabled={pagination.offset === 0}
+                      disabled={currentPage <= 1}
                     >
                       <ChevronLeft className="h-4 w-4" />
-                      <span className="sr-only">Предыдущая страница</span>
+                      Назад
                     </Button>
-                    <div className="text-sm">
-                      Страница {currentPage} из {totalPages || 1}
-                    </div>
+                    <span className="text-sm">
+                      Страница {currentPage} из {totalPages}
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleNextPage}
-                      disabled={
-                        pagination.offset + pagination.limit >= pagination.total
-                      }
+                      disabled={currentPage >= totalPages}
                     >
+                      Вперед
                       <ChevronRight className="h-4 w-4" />
-                      <span className="sr-only">Следующая страница</span>
                     </Button>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

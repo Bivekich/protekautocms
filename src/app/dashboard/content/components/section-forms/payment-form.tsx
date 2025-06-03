@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { JsonValue } from '@prisma/client/runtime/library';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +21,18 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { PageSection } from '@prisma/client';
+
+// Определяем более гибкий тип для PageSection, подходящий для наших данных
+interface FlexiblePageSection {
+  id: string;
+  type: string;
+  order: number;
+  content: JsonValue | Record<string, unknown>;
+  isActive: boolean;
+  pageId: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
 
 const formSchema = z.object({
   title: z.string().min(1, {
@@ -59,7 +71,7 @@ type PaymentFormValues = z.infer<typeof formSchema>;
 
 interface PaymentFormProps {
   pageId: string;
-  initialData: PageSection;
+  initialData: FlexiblePageSection;
 }
 
 // Тип для контента секции "Оплата"

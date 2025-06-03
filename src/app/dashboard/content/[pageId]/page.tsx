@@ -1,47 +1,123 @@
-import { Metadata } from 'next';
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
+'use client';
 
-import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { useEffect, useState } from 'react';
+import { redirect, useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+
 import { PageForm } from '../components/page-form';
 import { PageSections } from '../components/page-sections';
+import { useContentGraphQL, Page } from '@/hooks/useContentGraphQL';
+import { Loader2 } from 'lucide-react';
+import { JsonValue } from '@prisma/client/runtime/library';
 
-export const metadata: Metadata = {
-  title: 'Редактирование страницы | ProtekCMS',
-  description: 'Редактирование страницы сайта',
+// Определяем тип для Section, совместимый с ожиданиями PageSections
+type Section = {
+  id: string;
+  type: string;
+  order: number;
+  content: JsonValue;
+  isActive: boolean;
+  pageId: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
-export default async function PagePage({
-  params,
-}: {
-  params: Promise<{ pageId: string }>;
-}) {
-  const session = await getServerSession(authOptions);
+export default function PagePage() {
+  const { data: session, status } = useSession();
+  const { getPage, loading, error } = useContentGraphQL();
+  const params = useParams();
+  const pageId = params.pageId as string;
+  const [page, setPage] = useState<Page | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
+
+  console.log('PagePage rendered:', { 
+    pageId, 
+    session: !!session, 
+    status, 
+    loading, 
+    error, 
+    page: !!page,
+    pageLoading,
+    sessionValue: session,
+    pageIdValue: pageId,
+    sessionType: typeof session,
+    pageIdType: typeof pageId
+  });
+
+  useEffect(() => {
+    console.log('useEffect triggered with:', { 
+      session: !!session, 
+      pageId, 
+      sessionValue: session,
+      pageIdValue: pageId,
+      condition: !!(session && pageId)
+    });
+    
+    const fetchPage = async () => {
+      console.log('fetchPage started:', { pageId, session: !!session });
+      try {
+        const pageData = await getPage(pageId);
+        console.log('fetchPage result:', { hasPageData: !!pageData, pageData });
+        if (pageData) {
+          setPage(pageData);
+        } else {
+          console.log('No page data returned');
+        }
+      } catch (err) {
+        console.error('Ошибка при загрузке страницы:', err);
+      } finally {
+        setPageLoading(false);
+      }
+    };
+
+    if (session && pageId) {
+      console.log('Condition met, calling fetchPage...');
+      fetchPage();
+    } else {
+      console.log('Condition NOT met:', { session: !!session, pageId, sessionExists: !!session, pageIdExists: !!pageId });
+      setPageLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, pageId]); // getPage стабильна благодаря useCallback
+
+  if (status === 'loading') {
+    console.log('Session loading...');
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   if (!session) {
+    console.log('No session, redirecting to login...');
     redirect('/auth/login');
   }
 
-  // Получаем параметры маршрута асинхронно
-  const { pageId } = await params;
+  if (loading || pageLoading) {
+    console.log('GraphQL or page loading...');
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
-  const page = await db.page.findUnique({
-    where: {
-      id: pageId,
-    },
-    include: {
-      sections: {
-        orderBy: {
-          order: 'asc',
-        },
-      },
-    },
-  });
+  if (error) {
+    console.log('GraphQL error:', error);
+    return (
+      <div className="container mx-auto py-6">
+        <div className="text-red-500">Ошибка: {error}</div>
+      </div>
+    );
+  }
 
   if (!page) {
+    console.log('No page data, redirecting to content list...');
     redirect('/dashboard/content');
   }
+
+  console.log('Rendering page form with:', page);
 
   return (
     <div className="container mx-auto py-6">
@@ -54,7 +130,7 @@ export default async function PagePage({
 
       <div className="space-y-8">
         <PageForm initialData={page} />
-        <PageSections pageId={page.id} sections={page.sections} />
+        <PageSections pageId={page.id} sections={(page.sections || []) as unknown as Section[]} />
       </div>
     </div>
   );

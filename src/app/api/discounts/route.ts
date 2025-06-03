@@ -19,10 +19,10 @@ export async function OPTIONS() {
  * GET /api/discounts
  * Получение списка скидок и промокодов
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(request);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -61,7 +61,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     // Получаем текущего пользователя
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser(req);
     if (!currentUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
