@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine
 
 # Устанавливаем зависимости, необходимые для Prisma
 RUN apk add --no-cache libc6-compat openssl
@@ -6,49 +6,27 @@ RUN apk add --no-cache libc6-compat openssl
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Устанавливаем зависимости
-FROM base AS deps
+# Копируем файлы проекта
 COPY package.json package-lock.json ./
-# Увеличиваем лимит памяти для npm и добавляем флаги для увеличения надежности
-RUN npm config set registry https://registry.npmjs.org/ && \
-    npm config set fetch-retries 5 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    NODE_OPTIONS="--max-old-space-size=4096" npm install --legacy-peer-deps --no-fund --no-audit --verbose
+COPY prisma ./prisma
 
-# Сборка приложения
-FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Устанавливаем зависимости
+RUN npm install --omit=dev
 
-# Генерируем Prisma клиент и собираем приложение
+# Генерируем Prisma клиент
 RUN npx prisma generate
-RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
-# Рабочий образ
-FROM base AS runner
-ENV NODE_ENV production
-
-# Добавляем непривилегированного пользователя для запуска приложения
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Копируем необходимые файлы
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/docker-entrypoint.sh ./docker-entrypoint.sh
+# Копируем остальные файлы
+COPY . .
 
 # Делаем entrypoint-скрипт исполняемым
 RUN chmod +x ./docker-entrypoint.sh
 
-# Создаем директорию для загрузок файлов
-RUN mkdir -p ./public/uploads && chown -R nextjs:nodejs ./public/uploads
+# Собираем приложение
+RUN npm run build
 
-# Переключаемся на непривилегированного пользователя
-USER nextjs
+# Создаем директорию для загрузок
+RUN mkdir -p ./public/uploads
 
 # Порт, который будет слушать приложение
 EXPOSE 3000
@@ -57,4 +35,4 @@ EXPOSE 3000
 ENTRYPOINT ["./docker-entrypoint.sh"]
 
 # Команда для запуска приложения
-CMD ["node", "server.js"] 
+CMD ["npm", "start"] 
