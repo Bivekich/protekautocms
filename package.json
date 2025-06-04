@@ -3,14 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS=--no-deprecation next dev --turbopack",
+    "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
     "build:no-check": "prisma generate && next build --no-lint",
     "postinstall": "prisma generate",
     "migrate": "prisma migrate deploy",
     "baseline": "node scripts/baseline-migrations.js",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",
@@ -62,6 +65,10 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/bcrypt": "^5.0.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.9",
@@ -69,16 +76,22 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.5.1",
+    "c8": "^10.1.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "eslint": "^9",
     "eslint-config-next": "15.2.1",
+    "happy-dom": "^17.6.1",
+    "jsdom": "^26.1.0",
+    "msw": "^2.9.0",
     "prisma": "^6.8.2",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4",
     "tailwindcss-animate": "^1.0.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.1"
   },
   "prisma": {
     "seed": "ts-node ./prisma/seed.ts"
