@@ -323,6 +323,7 @@ const typeDefs = `
       search: String
       stockFilter: String
       visibilityFilter: String
+      includeSubcategories: Boolean
     ): ProductsResult!
     productItem(id: ID!): Product
     media(
@@ -539,6 +540,7 @@ const resolvers = {
       search,
       stockFilter,
       visibilityFilter,
+      includeSubcategories,
     }: {
       page?: number;
       limit?: number;
@@ -546,12 +548,38 @@ const resolvers = {
       search?: string;
       stockFilter?: string;
       visibilityFilter?: string;
+      includeSubcategories?: boolean;
     }) => {
       const skip = (page - 1) * limit;
       const where: Record<string, unknown> = {};
       
       if (categoryId) {
-        where.categoryId = categoryId;
+        if (includeSubcategories) {
+          // Получаем категорию и все её подкатегории
+          const category = await db.category.findUnique({
+            where: { id: categoryId },
+            include: {
+              subcategories: {
+                select: { id: true },
+                where: { isVisible: true },
+              },
+            },
+          });
+          
+          if (category) {
+            // Создаем массив ID всех категорий (текущая + подкатегории)
+            const categoryIds = [
+              categoryId,
+              ...category.subcategories.map(sub => sub.id)
+            ];
+            
+            where.categoryId = { in: categoryIds };
+          } else {
+            where.categoryId = categoryId;
+          }
+        } else {
+          where.categoryId = categoryId;
+        }
       }
       
       if (search) {
