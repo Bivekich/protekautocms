@@ -1,283 +1,151 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import { render, screen } from '@testing-library/react';
 import ProductsList from '../../../../components/catalog/ProductsList';
-import { useCatalogGraphQL } from '@/hooks/useCatalogGraphQL';
 
-// Мокаем хук useCatalogGraphQL
-vi.mock('@/hooks/useCatalogGraphQL', () => ({
-  useCatalogGraphQL: vi.fn(),
-}));
-
-// Мокаем next/navigation
-vi.mock('next/navigation', () => ({
-  useSearchParams: vi.fn().mockReturnValue({
-    get: vi.fn().mockImplementation((param) => {
-      if (param === 'stock') return 'all';
-      if (param === 'visibility') return 'all';
-      return null;
-    }),
-  }),
-}));
-
-// Мокаем next/image для предотвращения ошибок с URL
-vi.mock('next/image', () => ({
-  default: vi.fn().mockImplementation(({ src, alt, className }) => {
-    return (
-      <img 
-        src={typeof src === 'string' ? src : '/placeholder.jpg'} 
-        alt={alt} 
-        className={className} 
-        data-testid="next-image"
-      />
-    );
-  })
-}));
-
-// Фиксим URL для тестов
-global.URL.createObjectURL = vi.fn().mockReturnValue('mock-url');
-
-// Мокаем fetch для API вызовов
-global.fetch = vi.fn();
-
-// Мокаем window.location
-const mockLocation = {
-  href: '',
-  search: '',
-  pathname: '/dashboard/catalog',
-};
-
-Object.defineProperty(window, 'location', {
-  value: mockLocation,
-  writable: true,
-});
-
-// Мокаем window.history.pushState
-window.history.pushState = vi.fn();
+// Импортируем настройки для тестов
+import './setup';
 
 describe('ProductsList', () => {
-  const mockProducts = [
-    {
-      id: 'product1',
-      name: 'Тестовый товар 1',
-      sku: 'TEST-001',
-      retailPrice: 1000,
-      wholesalePrice: 800,
-      stock: 10,
-      isVisible: true,
-      images: [{ url: '/images/test1.jpg', alt: 'Тестовый товар 1' }],
-      category: {
-        id: 'category1',
-        name: 'Тестовая категория',
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'product2',
-      name: 'Тестовый товар 2',
-      sku: 'TEST-002',
-      retailPrice: 2000,
-      wholesalePrice: 1800,
-      stock: 0,
-      isVisible: false,
-      images: [],
-      category: {
-        id: 'category1',
-        name: 'Тестовая категория',
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
+  const onCategorySelectMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
-    window.location.search = '';
-    
-    // Базовый мок для хука
-    (useCatalogGraphQL as any).mockReturnValue({
-      loading: false,
-      error: null,
-      getProducts: vi.fn().mockResolvedValue({
-        products: mockProducts,
-        pagination: { pages: 2, total: 12 },
-      }),
-      deleteProduct: vi.fn().mockResolvedValue({ success: true }),
-      bulkDeleteProducts: vi.fn().mockResolvedValue({ success: true }),
-      bulkUpdateProducts: vi.fn().mockResolvedValue({ success: true }),
-      getCategories: vi.fn().mockResolvedValue({
-        categories: [],
-      }),
-    });
-
-    // Мок для fetch API
-    (global.fetch as any).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({ success: true }),
-    });
   });
 
-  // Все тесты пока отключаем, чтобы сначала убедиться, что моки правильно настроены
-  it.skip('отображает список товаров', async () => {
+  it('renders products list correctly', () => {
     render(
       <ProductsList 
-        categoryId="category1"
+        categoryId="all" 
+        onCategorySelect={onCategorySelectMock}
       />
     );
     
-    // Проверяем, что отображаются товары
-    await waitFor(() => {
-      expect(screen.getByText('Тестовый товар 1')).toBeInTheDocument();
-      expect(screen.getByText('Тестовый товар 2')).toBeInTheDocument();
-    });
+    // Проверяем наличие заголовков столбцов таблицы
+    expect(screen.getByRole('columnheader', { name: /название/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /артикул/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /цена/i })).toBeInTheDocument();
   });
 
-  it.skip('отображает SKU товаров', async () => {
+  it('displays products from the mock data', () => {
     render(
       <ProductsList 
-        categoryId="category1"
+        categoryId="1" 
+        onCategorySelect={onCategorySelectMock}
       />
     );
     
-    // Проверяем отображение артикулов
-    await waitFor(() => {
-      expect(screen.getByText('TEST-001')).toBeInTheDocument();
-      expect(screen.getByText('TEST-002')).toBeInTheDocument();
-    });
+    // Проверяем, что товары из мока отображаются
+    expect(screen.getByText('Товар 1')).toBeInTheDocument();
+    expect(screen.getByText('Товар 2')).toBeInTheDocument();
   });
 
-  it.skip('отображает цены товаров', async () => {
+  it('selects a product when checkbox is clicked', () => {
     render(
       <ProductsList 
-        categoryId="category1"
+        categoryId="1" 
+        onCategorySelect={onCategorySelectMock}
       />
     );
     
-    // Проверяем отображение цен
-    await waitFor(() => {
-      expect(screen.getByText('1000 ₽')).toBeInTheDocument();
-      expect(screen.getByText('2000 ₽')).toBeInTheDocument();
-    });
-  });
-
-  it.skip('отображает статус наличия', async () => {
-    render(
-      <ProductsList 
-        categoryId="category1"
-      />
-    );
-    
-    // Проверяем отображение статуса наличия
-    await waitFor(() => {
-      expect(screen.getByText('10')).toBeInTheDocument(); // Количество в наличии
-      expect(screen.getByText('0')).toBeInTheDocument(); // Нет в наличии
-    });
-  });
-
-  it.skip('отображает статус видимости', async () => {
-    render(
-      <ProductsList 
-        categoryId="category1"
-      />
-    );
-    
-    // Проверяем отображение переключателей видимости
-    await waitFor(() => {
-      const switches = screen.getAllByRole('switch');
-      expect(switches[0]).toBeChecked(); // Первый товар виден
-      expect(switches[1]).not.toBeChecked(); // Второй товар скрыт
-    });
-  });
-
-  it.skip('вызывает API для переключения видимости товара', async () => {
-    render(
-      <ProductsList 
-        categoryId="category1"
-      />
-    );
-    
-    // Ждем загрузки списка
-    await waitFor(() => {
-      expect(screen.getByText('Тестовый товар 1')).toBeInTheDocument();
-    });
-    
-    // Находим переключатель видимости и кликаем по нему
-    const visibilitySwitch = screen.getAllByRole('switch')[0];
-    fireEvent.click(visibilitySwitch);
-    
-    // Проверяем, что был вызван API для обновления товара
-    expect(useCatalogGraphQL().bulkUpdateProducts).toHaveBeenCalledWith({
-      productIds: ['product1'],
-      data: { isVisible: false }
-    });
-  });
-
-  it.skip('выбирает товар при клике на чекбокс', async () => {
-    render(
-      <ProductsList 
-        categoryId="category1"
-      />
-    );
-    
-    // Ждем загрузки списка
-    await waitFor(() => {
-      expect(screen.getByText('Тестовый товар 1')).toBeInTheDocument();
-    });
-    
-    // Находим чекбокс и кликаем по нему
-    const checkbox = screen.getAllByRole('checkbox')[1]; // Первый реальный чекбокс (0 - выбрать все)
-    fireEvent.click(checkbox);
+    // Находим чекбокс первого товара и кликаем по нему
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]); // Первый товар (индекс 1, так как индекс 0 - это "выбрать все")
     
     // Проверяем, что чекбокс выбран
-    expect(checkbox).toBeChecked();
+    expect(checkboxes[1]).toBeChecked();
   });
 
-  it.skip('выбирает все товары при клике на чекбокс "Выбрать все"', async () => {
+  it('selects all products when "select all" checkbox is clicked', () => {
     render(
       <ProductsList 
-        categoryId="category1"
+        categoryId="1" 
+        onCategorySelect={onCategorySelectMock}
       />
     );
     
-    // Ждем загрузки списка
-    await waitFor(() => {
-      expect(screen.getByText('Тестовый товар 1')).toBeInTheDocument();
-    });
-    
-    // Находим чекбокс "Выбрать все" и кликаем по нему
+    // Находим чекбокс "выбрать все" и кликаем по нему
     const selectAllCheckbox = screen.getAllByRole('checkbox')[0];
     fireEvent.click(selectAllCheckbox);
     
     // Проверяем, что все чекбоксы выбраны
     const checkboxes = screen.getAllByRole('checkbox');
-    expect(checkboxes[0]).toBeChecked(); // "Выбрать все"
-    expect(checkboxes[1]).toBeChecked(); // Товар 1
-    expect(checkboxes[2]).toBeChecked(); // Товар 2
-  });
-
-  it.skip('отображает элементы пагинации', async () => {
-    render(
-      <ProductsList 
-        categoryId="category1"
-      />
-    );
-    
-    // Проверяем наличие элементов пагинации
-    await waitFor(() => {
-      expect(screen.getByText('Вперед')).toBeInTheDocument();
+    checkboxes.forEach(checkbox => {
+      expect(checkbox).toBeChecked();
     });
   });
 
-  // Добавляем хотя бы один активный тест для проверки, что моки работают
-  it('отрисовывает компонент без ошибок', () => {
+  it('toggles product visibility when visibility switch is clicked', () => {
     render(
       <ProductsList 
-        categoryId="category1"
+        categoryId="1" 
+        onCategorySelect={onCategorySelectMock}
       />
     );
     
-    // Простая проверка, что компонент рендерится без ошибок
-    expect(document.body).toBeInTheDocument();
+    // Находим переключатель видимости и кликаем по нему
+    const visibilitySwitches = screen.getAllByRole('switch');
+    fireEvent.click(visibilitySwitches[0]);
+    
+    // Проверяем, что fetch был вызван для обновления видимости
+    expect(global.fetch).toHaveBeenCalled();
   });
-}); 
+
+  it('opens delete confirmation dialog when delete button is clicked', () => {
+    render(
+      <ProductsList 
+        categoryId="1" 
+        onCategorySelect={onCategorySelectMock}
+      />
+    );
+    
+    // Находим кнопку удаления в первой строке и кликаем по ней
+    const deleteButtons = screen.getAllByTitle('Удалить товар');
+    fireEvent.click(deleteButtons[0]);
+    
+    // Проверяем, что диалог подтверждения открылся
+    expect(screen.getByText(/вы уверены, что хотите удалить товар/i)).toBeInTheDocument();
+  });
+
+  it('navigates to edit product page when edit button is clicked', () => {
+    // Создаем шпиона для window.location.href
+    const hrefSpy = vi.spyOn(window.location, 'href', 'set');
+    
+    render(
+      <ProductsList 
+        categoryId="1" 
+        onCategorySelect={onCategorySelectMock}
+      />
+    );
+    
+    // Находим кнопку редактирования в первой строке и кликаем по ней
+    const editButtons = screen.getAllByTitle('Редактировать товар');
+    fireEvent.click(editButtons[0]);
+    
+    // Проверяем, что был переход на страницу редактирования
+    expect(hrefSpy).toHaveBeenCalled();
+  });
+
+  it('applies filters when filter button is clicked', () => {
+    render(
+      <ProductsList 
+        categoryId="1" 
+        onCategorySelect={onCategorySelectMock}
+      />
+    );
+    
+    // Находим кнопку фильтра и кликаем по ней
+    const filterButton = screen.getByRole('button', { name: /фильтр/i });
+    fireEvent.click(filterButton);
+    
+    // Выбираем значение фильтра
+    const stockFilterSelect = screen.getByLabelText(/наличие/i);
+    fireEvent.change(stockFilterSelect, { target: { value: 'in-stock' } });
+    
+    // Кликаем на кнопку применения фильтров
+    const applyButton = screen.getByRole('button', { name: /применить/i });
+    fireEvent.click(applyButton);
+    
+    // Проверяем, что запрос на получение товаров был вызван с новыми фильтрами
+    expect(global.fetch).toHaveBeenCalled();
+  });
+});

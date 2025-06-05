@@ -2,6 +2,9 @@ import '@testing-library/jest-dom';
 import { expect, afterEach, vi, beforeEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
+// Импортируем моки для UI компонентов
+import './mocks/ui-components';
+
 // Глобальные моки и объекты
 beforeEach(() => {
   // Мок для next/navigation
@@ -20,12 +23,10 @@ beforeEach(() => {
   }));
 
   // Мок для fetch
-  global.fetch = vi.fn().mockImplementation(() => 
-    Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({}),
-    })
-  );
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ success: true }),
+  });
 
   // Мок для matchMedia
   Object.defineProperty(window, 'matchMedia', {
@@ -80,6 +81,17 @@ beforeEach(() => {
       clear: vi.fn(),
     },
   });
+
+  // Мок для IntersectionObserver
+  vi.stubGlobal('IntersectionObserver', vi.fn().mockImplementation((callback) => ({
+    root: null,
+    rootMargin: '',
+    thresholds: [],
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+    takeRecords: vi.fn().mockReturnValue([]),
+  })));
 });
 
 // Очистка после каждого теста

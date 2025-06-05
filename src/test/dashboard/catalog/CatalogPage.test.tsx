@@ -1,94 +1,67 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { act } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import { render, screen, fireEvent } from '@testing-library/react';
 import CatalogPage from '../../../../components/catalog/CatalogPage';
-import { useCatalogGraphQL } from '@/hooks/useCatalogGraphQL';
 
-// Мокаем хук useCatalogGraphQL
-vi.mock('@/hooks/useCatalogGraphQL', () => ({
-  useCatalogGraphQL: vi.fn(),
-}));
+// Импортируем настройки для тестов
+import './setup';
+
+// Имитация компонентов
+import { CatalogSidebarMock, CategoryContentMock } from '../../mocks/catalog-components';
 
 describe('CatalogPage', () => {
   beforeEach(() => {
-    // Базовый мок для хука
-    (useCatalogGraphQL as any).mockReturnValue({
-      loading: false,
-      error: null,
-      getCategories: vi.fn().mockResolvedValue({
-        categories: [],
-      }),
-      getCategory: vi.fn().mockResolvedValue({
-        id: 'category1',
-        name: 'Тестовая категория',
-        subcategories: [],
-      }),
-      getProducts: vi.fn().mockResolvedValue({
-        products: [],
-        pagination: { pages: 1, total: 0 },
-      }),
-    });
+    vi.clearAllMocks();
   });
 
-  it('рендерит компонент со вкладками "Каталог" и "Импорт/Экспорт"', async () => {
-    await act(async () => {
-      render(<CatalogPage />);
-    });
-    
-    // Используем более специфичный селектор с ролью для вкладок
-    expect(screen.getByRole('tab', { name: 'Каталог' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Импорт/Экспорт' })).toBeInTheDocument();
-  });
-
-  it('отображает вкладку "Каталог" по умолчанию', async () => {
-    await act(async () => {
-      render(<CatalogPage />);
-    });
-    
-    const catalogTab = screen.getByRole('tab', { name: 'Каталог' });
-    expect(catalogTab).toHaveAttribute('data-state', 'active');
-  });
-
-  // Этот тест не работает из-за особенностей компонента Tabs из Radix UI
-  // Требуется дополнительная настройка моков и событий
-  it.skip('переключает вкладки при клике', async () => {
-    await act(async () => {
-      render(<CatalogPage />);
-    });
-    
-    const importExportTab = screen.getByRole('tab', { name: 'Импорт/Экспорт' });
-    
-    await act(async () => {
-      fireEvent.click(importExportTab);
-    });
-    
-    // Ждем обновления состояния компонента
-    await waitFor(() => {
-      expect(importExportTab).toHaveAttribute('data-state', 'active');
-    });
-  });
-
-  // Остальные тесты пока пропускаем, так как они требуют более глубокой проработки моков
-  it.skip('выбирает категорию "all" по умолчанию', () => {
+  it('renders correctly', () => {
     render(<CatalogPage />);
     
-    // Проверка атрибута data-selected-category невозможна из-за отсутствия атрибута в разметке
-    // Вместо этого проверяем, что в левой панели есть "Все товары"
-    expect(screen.getByText('Все товары')).toBeInTheDocument();
+    // Проверяем наличие основных элементов
+    expect(screen.getByTestId('catalog-sidebar-mock')).toBeInTheDocument();
+    expect(screen.getByTestId('category-content-mock')).toBeInTheDocument();
   });
 
-  it.skip('передает обработчик выбора категории в компоненты', async () => {
+  it('initializes with "all" category selected', () => {
     render(<CatalogPage />);
     
-    // Симулируем клик на элемент "Все товары" вместо поиска по data-testid
-    const allCategoriesItem = screen.getByText('Все товары');
-    fireEvent.click(allCategoriesItem);
+    const sidebar = screen.getByTestId('catalog-sidebar-mock');
+    expect(sidebar.getAttribute('data-selected-category')).toBe('all');
     
-    // Проверяем, что CategoryContent получает правильный categoryId
-    await waitFor(() => {
-      const categoryContent = screen.getByTestId('category-content');
-      expect(categoryContent).toHaveAttribute('data-category-id', 'all');
-    });
+    const content = screen.getByTestId('category-content-mock');
+    expect(content.getAttribute('data-category-id')).toBe('all');
+  });
+
+  it('changes tabs correctly', () => {
+    render(<CatalogPage />);
+    
+    // Сначала должна быть активна вкладка "Каталог"
+    expect(screen.getByRole('tab', { name: /каталог/i })).toHaveAttribute('data-state', 'active');
+    
+    // Переключаемся на вкладку "Импорт/Экспорт"
+    fireEvent.click(screen.getByRole('tab', { name: /импорт\/экспорт/i }));
+    
+    // Теперь должна быть активна вкладка "Импорт/Экспорт"
+    expect(screen.getByRole('tab', { name: /импорт\/экспорт/i })).toHaveAttribute('data-state', 'active');
+  });
+
+  it('selects category when sidebar category is clicked', () => {
+    // Мокаем CatalogSidebar и его onCategorySelect функцию
+    vi.mocked(CatalogSidebarMock).mockImplementationOnce(({ onCategorySelect }) => (
+      <div data-testid="catalog-sidebar-mock" onClick={() => onCategorySelect('1')}>
+        Mock Sidebar
+      </div>
+    ));
+    
+    render(<CatalogPage />);
+    
+    // Симулируем клик на сайдбар
+    const sidebar = screen.getByTestId('catalog-sidebar-mock');
+    fireEvent.click(sidebar);
+    
+    // Проверяем, что CategoryContent получил правильный categoryId
+    expect(vi.mocked(CategoryContentMock)).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: '1' }),
+      expect.anything()
+    );
   });
 }); 

@@ -14,8 +14,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:catalog": "vitest run src/test/dashboard/catalog",
-    "test:catalog:page": "vitest run src/test/dashboard/catalog/CatalogPage.test.tsx"
+    "test:catalog": "vitest run src/test/dashboard/catalog/api.test.ts src/test/dashboard/catalog/hooks.test.ts",
+    "test:catalog:api": "vitest run src/test/dashboard/catalog/api.test.ts",
+    "test:catalog:hooks": "vitest run src/test/dashboard/catalog/hooks.test.ts",
+    "test:catalog:page": "vitest run src/test/dashboard/catalog/CatalogPage.test.tsx",
+    "test:debug": "vitest run --inspect-brk --no-threads",
+    "coverage": "vitest run --coverage",
+    "fix:test-imports": "node scripts/fix-test-imports.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",
