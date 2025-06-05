@@ -1,16 +1,22 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { HTMLAttributes } from 'react';
 
-interface PaginationProps {
+interface PaginationProps extends HTMLAttributes<HTMLDivElement> {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  'data-testid'?: string;
 }
 
 export function Pagination({
   currentPage,
   totalPages,
   onPageChange,
+  className,
+  'data-testid': dataTestId,
+  ...props
 }: PaginationProps) {
   // Функция для генерации массива страниц
   const generatePagesArray = () => {
@@ -65,12 +71,18 @@ export function Pagination({
   const pages = generatePagesArray();
 
   return (
-    <div className="flex items-center justify-center space-x-2">
+    <div 
+      className={cn("flex items-center justify-center space-x-2", className)}
+      data-testid={dataTestId}
+      {...props}
+    >
       <Button
         variant="outline"
         size="icon"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
+        aria-label="Предыдущая страница"
+        data-testid={dataTestId ? `${dataTestId}-prev` : undefined}
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
@@ -87,6 +99,9 @@ export function Pagination({
             size="sm"
             onClick={() => typeof page === 'number' && onPageChange(page)}
             className="min-w-[32px]"
+            aria-label={`Страница ${page}`}
+            aria-current={currentPage === page ? 'page' : undefined}
+            data-testid={dataTestId && typeof page === 'number' ? `${dataTestId}-page-${page}` : undefined}
           >
             {page}
           </Button>
@@ -98,6 +113,8 @@ export function Pagination({
         size="icon"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
+        aria-label="Следующая страница"
+        data-testid={dataTestId ? `${dataTestId}-next` : undefined}
       >
         <ChevronRight className="h-4 w-4" />
       </Button>

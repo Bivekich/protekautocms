@@ -248,7 +248,8 @@ export default function ImportExport() {
                   type="file"
                   accept=".csv,.xlsx,.xls"
                   onChange={handleFileChange}
-                  className="flex-1"
+                  data-testid="import-file-input"
+                  className="hidden"
                 />
                 <Button
                   onClick={handleImport}

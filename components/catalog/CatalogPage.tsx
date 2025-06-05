@@ -23,6 +23,8 @@ export default function CatalogPage() {
         <CatalogSidebar
           selectedCategory={selectedCategory}
           onCategorySelect={handleCategorySelect}
+          data-testid="catalog-sidebar"
+          data-selected-category={selectedCategory}
         />
       </div>
 
@@ -44,6 +46,8 @@ export default function CatalogPage() {
             <CategoryContent
               categoryId={selectedCategory}
               onCategorySelect={handleCategorySelect}
+              data-testid="category-content"
+              data-category-id={selectedCategory}
             />
           </TabsContent>
 

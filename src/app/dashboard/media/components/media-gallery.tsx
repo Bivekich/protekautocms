@@ -311,308 +311,357 @@ export const MediaGallery = () => {
     });
   };
 
+  // Обработка клика по карточке
+  const handleCardClick = (item: Media) => {
+    setSelectedMedia(item);
+    setDetailsDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Верхняя панель с поиском и кнопкой загрузки */}
-      <div className="flex justify-between items-center">
-        <div className="relative w-64 flex gap-2">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Поиск по имени файла"
-            className="pl-8"
+            placeholder="Поиск по имени файла..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSearch();
-              }
-            }}
+            className="pl-10"
+            data-testid="media-search-input"
           />
-          <Button onClick={handleSearch} variant="outline">
-            Найти
-          </Button>
         </div>
-
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Upload className="mr-2 h-4 w-4" />
-              Загрузить файл
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Загрузка файла</DialogTitle>
-              <DialogDescription>
-                Загрузите изображение для использования в контенте
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="grid w-full max-w-sm items-center gap-1.5">
-                <Label htmlFor="file">Файл</Label>
-                <Input
-                  id="file"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                />
-              </div>
-
-              {previewUrl && (
-                <div className="mt-4">
-                  <Label>Предпросмотр</Label>
-                  <div className="mt-1 border rounded-md overflow-hidden">
-                    <Image
-                      src={previewUrl}
-                      alt="Preview"
-                      width={400}
-                      height={200}
-                      className="max-h-[200px] object-contain mx-auto"
-                    />
-                  </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSearch} data-testid="media-search-button">
+            <Search className="h-4 w-4 mr-2" />
+            Поиск
+          </Button>
+          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="media-upload-button">
+                <Upload className="h-4 w-4 mr-2" />
+                Загрузить
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Загрузка файла</DialogTitle>
+                <DialogDescription>
+                  Загрузите файл для использования в контенте.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="file-upload">Выберите файл</Label>
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    onChange={handleFileChange}
+                    data-testid="media-file-input"
+                  />
                 </div>
-              )}
 
-              <div className="grid w-full max-w-sm items-center gap-1.5">
-                <Label htmlFor="alt">Альтернативный текст</Label>
-                <Input
-                  id="alt"
-                  value={alt}
-                  onChange={(e) => setAlt(e.target.value)}
-                  placeholder="Описание изображения для SEO"
-                />
+                {previewUrl && (
+                  <div className="grid gap-2">
+                    <Label>Предпросмотр</Label>
+                    <div className="border rounded-md p-2 flex justify-center">
+                      <Image
+                        src={previewUrl}
+                        alt="Preview"
+                        width={200}
+                        height={200}
+                        className="object-contain max-h-[200px]"
+                        data-testid="media-preview-image"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  <Label htmlFor="alt-text">Альтернативный текст</Label>
+                  <Input
+                    id="alt-text"
+                    value={alt}
+                    onChange={(e) => setAlt(e.target.value)}
+                    placeholder="Описательный текст для изображения"
+                    data-testid="media-alt-input"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Описание</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Дополнительная информация о файле"
+                    data-testid="media-description-input"
+                  />
+                </div>
               </div>
-
-              <div className="grid w-full max-w-sm items-center gap-1.5">
-                <Label htmlFor="description">Описание</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Дополнительная информация о файле"
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setUploadDialogOpen(false)}
-                disabled={uploading}
-              >
-                Отмена
-              </Button>
-              <Button
-                onClick={handleUpload}
-                disabled={!selectedFile || uploading}
-              >
-                {uploading ? 'Загрузка...' : 'Загрузить'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  onClick={handleUpload}
+                  disabled={!selectedFile || uploading}
+                  data-testid="media-upload-submit"
+                >
+                  {uploading ? 'Загрузка...' : 'Загрузить файл'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Галерея изображений */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {loading ? (
-          // Заглушки при загрузке
-          Array.from({ length: 10 }).map((_, index) => (
-            <Card key={index} className="overflow-hidden">
-              <div className="aspect-square bg-muted animate-pulse" />
-              <CardContent className="p-4">
-                <div className="h-4 bg-muted rounded animate-pulse mb-2" />
-                <div className="h-3 bg-muted rounded animate-pulse w-2/3" />
-              </CardContent>
-            </Card>
-          ))
-        ) : media.length === 0 ? (
-          // Сообщение, если нет файлов
-          <div className="col-span-full text-center py-12">
-            <p className="text-muted-foreground">
-              Нет загруженных файлов. Нажмите &quot;Загрузить файл&quot;, чтобы
-              добавить новый.
-            </p>
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Загрузка медиа-файлов...</p>
           </div>
-        ) : (
-          // Список файлов
-          media.map((item: Media) => (
+        </div>
+      ) : media.length === 0 ? (
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center" data-testid="media-empty-state">
+          <div className="p-4 rounded-full bg-muted mb-4">
+            <Image
+              src="/images/empty-media.svg"
+              alt="Нет файлов"
+              width={64}
+              height={64}
+              className="opacity-50"
+            />
+          </div>
+          <h3 className="text-lg font-medium">Нет файлов</h3>
+          <p className="text-sm text-muted-foreground max-w-md mt-2">
+            В вашей галерее пока нет файлов. Нажмите кнопку "Загрузить" чтобы добавить новый файл.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" data-testid="media-gallery-grid">
+          {media.map((item) => (
             <Card
               key={item.id}
-              className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => {
-                setSelectedMedia(item);
-                setDetailsDialogOpen(true);
-              }}
+              className="overflow-hidden cursor-pointer hover:border-primary transition-colors"
+              onClick={() => handleCardClick(item)}
+              data-testid={`media-card-${item.id}`}
             >
-              <div className="aspect-square relative">
-                <Image
-                  src={item.url}
-                  alt={item.alt || item.name}
-                  width={200}
-                  height={200}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <CardContent className="p-3">
-                <div className="truncate font-medium">{item.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {formatFileSize(item.size)}
+              <CardContent className="p-0">
+                <div className="aspect-square relative bg-muted">
+                  {item.type === 'image' ? (
+                    <Image
+                      src={getFullUrl(item.url)}
+                      alt={item.alt || item.name}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : item.type === 'video' ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="p-2 rounded-full bg-black/20">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-5 h-5 text-white"
+                          >
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="w-16 h-16 bg-muted-foreground/20 rounded-lg flex items-center justify-center">
+                        <span className="text-xs font-medium uppercase text-muted-foreground">
+                          {item.mimeType.split('/')[1]}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="p-3">
+                  <div className="text-sm font-medium truncate">{item.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {formatFileSize(item.size)} • {formatDate(item.createdAt)}
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Пагинация */}
-      {!loading && pagination.pages > 1 && (
+      {!loading && media.length > 0 && (
         <Pagination
-          currentPage={pagination.page}
+          className="flex justify-center my-6"
+          currentPage={currentPage}
           totalPages={pagination.pages}
           onPageChange={handlePageChange}
+          data-testid="media-pagination"
         />
       )}
 
-      {/* Диалог с деталями файла */}
+      {/* Диалог с информацией о файле */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-md">
           {selectedMedia && (
             <>
               <DialogHeader>
                 <DialogTitle>Информация о файле</DialogTitle>
+                <DialogDescription>
+                  Просмотр и управление файлом
+                </DialogDescription>
               </DialogHeader>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Image
-                    src={selectedMedia.url}
-                    alt={selectedMedia.alt || selectedMedia.name}
-                    width={500}
-                    height={500}
-                    className="w-full h-auto object-contain border rounded-md"
-                  />
+              <div className="grid gap-4 py-4">
+                <div className="aspect-video relative bg-muted rounded-md overflow-hidden">
+                  {selectedMedia.type === 'image' ? (
+                    <Image
+                      src={getFullUrl(selectedMedia.url)}
+                      alt={selectedMedia.alt || selectedMedia.name}
+                      fill
+                      className="object-contain"
+                      data-testid="media-details-image"
+                    />
+                  ) : selectedMedia.type === 'video' ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="p-2 rounded-full bg-black/20">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-5 h-5 text-white"
+                          >
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="w-16 h-16 bg-muted-foreground/20 rounded-lg flex items-center justify-center">
+                        <span className="text-xs font-medium uppercase text-muted-foreground">
+                          {selectedMedia.mimeType.split('/')[1]}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium">Имя файла</h3>
-                    <p className="text-sm">{selectedMedia.name}</p>
+                <div className="grid gap-2">
+                  <div className="text-sm font-medium">Название файла</div>
+                  <div className="text-sm text-muted-foreground">
+                    {selectedMedia.name}
                   </div>
+                </div>
 
-                  <div>
-                    <h3 className="font-medium">Относительный URL</h3>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={selectedMedia.url}
-                        readOnly
-                        className="text-xs"
-                      />
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => copyUrlToClipboard(selectedMedia.url)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                {selectedMedia.alt && (
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">Альтернативный текст</div>
+                    <div className="text-sm text-muted-foreground">
+                      {selectedMedia.alt}
                     </div>
                   </div>
+                )}
 
-                  <div>
-                    <h3 className="font-medium">Полный URL</h3>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={getFullUrl(selectedMedia.url)}
-                        readOnly
-                        className="text-xs"
-                      />
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => copyUrlToClipboard(selectedMedia.url)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                {selectedMedia.description && (
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">Описание</div>
+                    <div className="text-sm text-muted-foreground">
+                      {selectedMedia.description}
                     </div>
                   </div>
+                )}
 
-                  <div>
-                    <h3 className="font-medium">Альтернативный текст</h3>
-                    <p className="text-sm">{selectedMedia.alt || '-'}</p>
+                <div className="grid gap-2">
+                  <div className="text-sm font-medium">Тип файла</div>
+                  <div className="text-sm text-muted-foreground">
+                    {selectedMedia.mimeType}
                   </div>
+                </div>
 
-                  <div>
-                    <h3 className="font-medium">Описание</h3>
-                    <p className="text-sm">
-                      {selectedMedia.description || '-'}
-                    </p>
+                <div className="grid gap-2">
+                  <div className="text-sm font-medium">Размер файла</div>
+                  <div className="text-sm text-muted-foreground">
+                    {formatFileSize(selectedMedia.size)}
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <h3 className="font-medium">Размер</h3>
-                      <p className="text-sm">
-                        {formatFileSize(selectedMedia.size)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <h3 className="font-medium">Тип</h3>
-                      <p className="text-sm">{selectedMedia.mimeType}</p>
-                    </div>
+                <div className="grid gap-2">
+                  <div className="text-sm font-medium">URL файла</div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={getFullUrl(selectedMedia.url)}
+                      readOnly
+                      className="text-sm text-muted-foreground"
+                      data-testid="media-details-url"
+                    />
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => copyUrlToClipboard(selectedMedia.url)}
+                      data-testid="media-copy-url-button"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => window.open(getFullUrl(selectedMedia.url), '_blank')}
+                      data-testid="media-open-url-button"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
                   </div>
+                </div>
 
-                  <div>
-                    <h3 className="font-medium">Дата загрузки</h3>
-                    <p className="text-sm">
-                      {formatDate(selectedMedia.createdAt)}
-                    </p>
+                <div className="grid gap-2">
+                  <div className="text-sm font-medium">Дата загрузки</div>
+                  <div className="text-sm text-muted-foreground">
+                    {formatDate(selectedMedia.createdAt)}
                   </div>
                 </div>
               </div>
-
-              <DialogFooter className="gap-2">
-                <AlertDialog
-                  open={deleteDialogOpen}
-                  onOpenChange={setDeleteDialogOpen}
-                >
+              <DialogFooter className="flex justify-between">
+                <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive">
-                      <Trash2 className="mr-2 h-4 w-4" />
+                    <Button variant="destructive" data-testid="media-delete-button">
+                      <Trash2 className="h-4 w-4 mr-2" />
                       Удалить
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Удаление файла</AlertDialogTitle>
+                      <AlertDialogTitle>Подтверждение</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Вы уверены, что хотите удалить этот файл? Это действие
-                        нельзя отменить.
+                        Вы уверены, что хотите удалить этот файл? Это действие нельзя отменить.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Отмена</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete}>
-                        Удалить
+                      <AlertDialogAction 
+                        onClick={handleDelete}
+                        data-testid="media-confirm-delete-button"
+                      >
+                        Да, удалить
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-
                 <Button
-                  variant="outline"
-                  onClick={() => window.open(selectedMedia.url, '_blank')}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Открыть
-                </Button>
-
-                <Button
-                  variant="outline"
                   onClick={() => copyUrlToClipboard(selectedMedia.url)}
+                  data-testid="media-details-copy-button"
                 >
-                  <Copy className="mr-2 h-4 w-4" />
+                  <Copy className="h-4 w-4 mr-2" />
                   Копировать URL
                 </Button>
               </DialogFooter>

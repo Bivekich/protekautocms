@@ -337,9 +337,7 @@ export default function CatalogSidebar({
             <button
               onClick={(e) => toggleCategory(category.id, e)}
               className="mr-1 p-1 rounded-md hover:bg-gray-200 flex-shrink-0"
-              aria-label={
-                isExpanded ? 'Свернуть подкатегории' : 'Развернуть подкатегории'
-              }
+              data-testid="expand-category-icon"
             >
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
