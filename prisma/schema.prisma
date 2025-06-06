@@ -19,7 +19,7 @@ model User {
   twoFactorSecret  String?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
-  actionsAgainst   AuditLog[] @relation("TargetUserAuditLogs")
+
   auditLogs        AuditLog[] @relation("UserAuditLogs")
   media            Media[]
 }
@@ -33,7 +33,6 @@ model AuditLog {
   createdAt  DateTime @default(now())
   productId  String?
   targetType String?
-  targetUser User?    @relation("TargetUserAuditLogs", fields: [targetId], references: [id])
   user       User     @relation("UserAuditLogs", fields: [userId], references: [id])
 
   @@index([userId])
@@ -196,6 +195,13 @@ enum UserRole {
   MANAGER
 }
 
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+  PENDING
+}
+
 model Client {
   id               String         @id @default(cuid())
   phone            String         @unique
@@ -203,6 +209,7 @@ model Client {
   firstName        String?
   lastName         String?
   isVerified       Boolean        @default(false)
+  status           ClientStatus   @default(ACTIVE)
   profileType      String         @default("Розничный")
   profileId        String?
   profile          ClientProfile? @relation(fields: [profileId], references: [id])

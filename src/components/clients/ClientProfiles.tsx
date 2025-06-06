@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { useClientsGraphQL } from '@/hooks/useClientsGraphQL';
 
 interface Profile {
   id: string;
@@ -42,7 +43,6 @@ interface Profile {
 
 export function ClientProfiles() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAddProfileDialogOpen, setIsAddProfileDialogOpen] = useState(false);
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false);
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
@@ -55,28 +55,28 @@ export function ClientProfiles() {
     orderDiscount: '',
   });
 
+  // Используем GraphQL хук
+  const {
+    loading: isLoading,
+    getClientProfiles,
+    createClientProfile,
+    updateClientProfile,
+    deleteClientProfile,
+  } = useClientsGraphQL();
+
   // Загрузка профилей при монтировании компонента
   useEffect(() => {
     fetchProfiles();
   }, []);
 
-  // Функция для загрузки профилей с сервера
+  // Функция для загрузки профилей через GraphQL
   const fetchProfiles = async () => {
     try {
-      setIsLoading(true);
-      const response = await fetch('/api/client-profiles');
-
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке профилей');
-      }
-
-      const data = await response.json();
-      setProfiles(data.profiles);
+      const result = await getClientProfiles();
+      setProfiles(result.profiles);
     } catch (error) {
       console.error('Ошибка при загрузке профилей:', error);
       toast.error('Не удалось загрузить профили клиентов');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -99,7 +99,7 @@ export function ClientProfiles() {
     setIsEditProfileDialogOpen(true);
   };
 
-  // Функция для сохранения нового профиля
+  // Функция для сохранения нового профиля через GraphQL
   const handleSaveNewProfile = async () => {
     if (!newProfile.name || !newProfile.baseMarkup) {
       toast.error('Название и базовая наценка обязательны');
@@ -107,18 +107,14 @@ export function ClientProfiles() {
     }
 
     try {
-      const response = await fetch('/api/client-profiles', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newProfile),
+      await createClientProfile({
+        name: newProfile.name,
+        code: newProfile.code,
+        comment: newProfile.comment,
+        baseMarkup: newProfile.baseMarkup,
+        priceMarkup: newProfile.priceMarkup,
+        orderDiscount: newProfile.orderDiscount,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Ошибка при создании профиля');
-      }
 
       toast.success('Профиль успешно создан');
       setIsAddProfileDialogOpen(false);
@@ -129,7 +125,7 @@ export function ClientProfiles() {
     }
   };
 
-  // Функция для обновления существующего профиля
+  // Функция для обновления существующего профиля через GraphQL
   const handleUpdateProfile = async () => {
     if (!currentProfile || !currentProfile.name || !currentProfile.baseMarkup) {
       toast.error('Название и базовая наценка обязательны');
@@ -137,21 +133,14 @@ export function ClientProfiles() {
     }
 
     try {
-      const response = await fetch(
-        `/api/client-profiles/${currentProfile.id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(currentProfile),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Ошибка при обновлении профиля');
-      }
+      await updateClientProfile(currentProfile.id, {
+        name: currentProfile.name,
+        code: currentProfile.code,
+        comment: currentProfile.comment,
+        baseMarkup: currentProfile.baseMarkup,
+        priceMarkup: currentProfile.priceMarkup,
+        orderDiscount: currentProfile.orderDiscount,
+      });
 
       toast.success('Профиль успешно обновлен');
       setIsEditProfileDialogOpen(false);
@@ -162,22 +151,14 @@ export function ClientProfiles() {
     }
   };
 
-  // Функция для удаления профиля
+  // Функция для удаления профиля через GraphQL
   const handleDeleteProfile = async (id: string) => {
     if (!confirm('Вы уверены, что хотите удалить этот профиль?')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/client-profiles/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Ошибка при удалении профиля');
-      }
-
+      await deleteClientProfile(id);
       toast.success('Профиль успешно удален');
       fetchProfiles();
     } catch (error) {

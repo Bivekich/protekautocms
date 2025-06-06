@@ -38,17 +38,30 @@ import { Label } from '@/components/ui/label';
 import { ClientProfiles } from '@/components/clients/ClientProfiles';
 import { ClientDiscounts } from '@/components/clients/ClientDiscounts';
 import { ClientStatus } from '@/components/clients/ClientStatus';
+import { useClientsGraphQL } from '@/hooks/useClientsGraphQL';
 
 // Определяем интерфейс для клиента
 interface Client {
   id: string;
-  profileType: string;
-  name: string;
-  email: string;
-  markup: string;
   phone: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  isVerified: boolean;
+  status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED' | 'PENDING';
+  profileType: string;
+  profileId?: string;
+  profile?: {
+    id: string;
+    name: string;
+    code: string;
+    baseMarkup: string;
+  };
   registrationDate: string;
-  registrationStatus: string;
+  lastLoginDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  fullName: string;
 }
 
 // Немного уточнить тип для данных формы
@@ -67,50 +80,52 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [profileOptions, setProfileOptions] = useState<
     Array<{ id: string; name: string }>
   >([]);
-  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
+  
+  // Используем GraphQL хук
+  const {
+    loading: isLoading,
+    error,
+    getClientsList,
+    getClientProfiles,
+    createClient,
+  } = useClientsGraphQL();
 
-  // Загрузка клиентов с сервера
+  // Загрузка клиентов с сервера через GraphQL
   const fetchClients = useCallback(async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // Формируем строку запроса с фильтрами
-      let url = '/api/clients?';
+      const params: {
+        search?: string;
+        profileType?: string;
+        status?: 'ACTIVE' | 'INACTIVE' | 'BLOCKED' | 'PENDING';
+        isVerified?: boolean;
+      } = {};
 
       if (searchTerm) {
-        url += `search=${encodeURIComponent(searchTerm)}&`;
+        params.search = searchTerm;
       }
 
       if (profileFilter !== 'all') {
-        url += `profileType=${encodeURIComponent(profileFilter)}&`;
+        params.profileType = profileFilter;
       }
 
       if (statusFilter !== 'all') {
-        url += `isVerified=${statusFilter === 'Подтвержден'}&`;
+        if (statusFilter === 'Подтвержден') {
+          params.isVerified = true;
+        } else if (statusFilter === 'Не подтвержден') {
+          params.isVerified = false;
+        }
       }
 
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке данных');
-      }
-
-      const data = await response.json();
-      setClients(data.clients);
+      const result = await getClientsList(params);
+      setClients(result.clients);
     } catch (err) {
       console.error('Ошибка при получении списка клиентов:', err);
-      setError('Не удалось загрузить список клиентов');
       setClients([]);
-    } finally {
-      setIsLoading(false);
     }
-  }, [searchTerm, profileFilter, statusFilter]);
+  }, [searchTerm, profileFilter, statusFilter, getClientsList]);
 
   // Загружаем клиентов при изменении фильтров
   useEffect(() => {
@@ -122,44 +137,32 @@ export default function ClientsPage() {
     fetchProfiles();
   }, []);
 
-  // Функция для загрузки профилей клиентов
+  // Функция для загрузки профилей клиентов через GraphQL
   const fetchProfiles = async () => {
     try {
-      setIsLoadingProfiles(true);
-      const response = await fetch('/api/client-profiles');
-
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке профилей клиентов');
-      }
-
-      const data = await response.json();
+      const result = await getClientProfiles();
       setProfileOptions(
-        data.profiles.map((profile: { id: string; name: string }) => ({
+        result.profiles.map((profile: { id: string; name: string }) => ({
           id: profile.id,
           name: profile.name,
         }))
       );
     } catch (error) {
       console.error('Ошибка при загрузке профилей клиентов:', error);
-    } finally {
-      setIsLoadingProfiles(false);
     }
   };
 
-  // Функция для добавления нового клиента
+  // Функция для добавления нового клиента через GraphQL
   const handleAddClient = async (formData: ClientFormData) => {
     try {
-      const response = await fetch('/api/clients', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      await createClient({
+        phone: formData.phone,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        profileType: formData.profileType,
+        profileId: formData.profileId,
       });
-
-      if (!response.ok) {
-        throw new Error('Ошибка при создании клиента');
-      }
 
       // Обновляем список клиентов
       fetchClients();
@@ -276,14 +279,14 @@ export default function ClientsPage() {
                               href={`/dashboard/clients/${client.id}`}
                               className="text-blue-600 hover:underline"
                             >
-                              {client.name}
+                              {client.fullName}
                             </a>
                           </TableCell>
-                          <TableCell>{client.email}</TableCell>
-                          <TableCell>{client.markup}</TableCell>
+                          <TableCell>{client.email || 'Не указано'}</TableCell>
+                          <TableCell>{client.profile?.baseMarkup || 'Не указано'}</TableCell>
                           <TableCell>{client.phone}</TableCell>
-                          <TableCell>{client.registrationDate}</TableCell>
-                          <TableCell>{client.registrationStatus}</TableCell>
+                          <TableCell>{new Date(client.registrationDate).toLocaleDateString('ru-RU')}</TableCell>
+                          <TableCell>{client.isVerified ? 'Подтвержден' : 'Не подтвержден'}</TableCell>
                           <TableCell>
                             <Button variant="outline" size="sm">
                               Войти
@@ -385,7 +388,7 @@ export default function ClientsPage() {
                     <SelectValue placeholder="Выберите профиль клиента" />
                   </SelectTrigger>
                   <SelectContent>
-                    {isLoadingProfiles ? (
+                    {isLoading ? (
                       <SelectItem value="" disabled>
                         Загрузка профилей...
                       </SelectItem>

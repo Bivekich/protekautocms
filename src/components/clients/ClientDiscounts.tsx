@@ -26,6 +26,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { useClientsGraphQL } from '@/hooks/useClientsGraphQL';
 
 interface Profile {
   id: string;
@@ -54,9 +55,18 @@ interface EditingDiscount
 export function ClientDiscounts() {
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [editingDiscount, setEditingDiscount] =
     useState<EditingDiscount | null>(null);
+
+  // Используем GraphQL хук
+  const {
+    loading: isLoading,
+    getClientProfiles,
+    getDiscountsList,
+    createDiscount,
+    updateDiscount,
+    deleteDiscount,
+  } = useClientsGraphQL();
 
   // Загрузка данных при монтировании компонента
   useEffect(() => {
@@ -64,37 +74,22 @@ export function ClientDiscounts() {
     fetchProfiles();
   }, []);
 
-  // Загрузка скидок с сервера
+  // Загрузка скидок через GraphQL
   const fetchDiscounts = async () => {
     try {
-      setIsLoading(true);
-      const response = await fetch('/api/discounts');
-
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке скидок');
-      }
-
-      const data = await response.json();
-      setDiscounts(data.discounts || []);
+      const result = await getDiscountsList();
+      setDiscounts(result || []);
     } catch (error) {
       console.error('Ошибка при загрузке скидок:', error);
       toast.error('Не удалось загрузить скидки');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Загрузка профилей клиентов
+  // Загрузка профилей клиентов через GraphQL
   const fetchProfiles = async () => {
     try {
-      const response = await fetch('/api/client-profiles');
-
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке профилей');
-      }
-
-      const data = await response.json();
-      setProfiles(data.profiles || []);
+      const result = await getClientProfiles();
+      setProfiles(result.profiles || []);
     } catch (error) {
       console.error('Ошибка при загрузке профилей:', error);
       toast.error('Не удалось загрузить профили клиентов');
@@ -115,40 +110,25 @@ export function ClientDiscounts() {
     if (!editingDiscount) return;
 
     try {
-      const method = editingDiscount.id ? 'PUT' : 'POST';
-      const url = editingDiscount.id
-        ? `/api/discounts/${editingDiscount.id}`
-        : '/api/discounts';
+      const discountData = {
+        name: editingDiscount.name,
+        type: editingDiscount.type,
+        code: editingDiscount.code,
+        profileIds: editingDiscount.profileIds,
+        minOrderAmount: editingDiscount.minOrderAmount,
+        discountPercent: editingDiscount.discountPercent,
+        fixedDiscount: editingDiscount.fixedDiscount,
+        isActive: editingDiscount.isActive,
+      };
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: editingDiscount.name,
-          type: editingDiscount.type,
-          code: editingDiscount.code,
-          profileIds: editingDiscount.profileIds,
-          minOrderAmount: editingDiscount.minOrderAmount.toString(),
-          discountPercent: editingDiscount.discountPercent?.toString(),
-          fixedDiscount: editingDiscount.fixedDiscount?.toString(),
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.error ||
-            `Ошибка при ${
-              editingDiscount.id ? 'обновлении' : 'создании'
-            } скидки`
-        );
+      if (editingDiscount.id) {
+        await updateDiscount(editingDiscount.id, discountData);
+        toast.success('Скидка успешно обновлена');
+      } else {
+        await createDiscount(discountData);
+        toast.success('Скидка успешно создана');
       }
 
-      toast.success(
-        `Скидка успешно ${editingDiscount.id ? 'обновлена' : 'создана'}`
-      );
       setEditingDiscount(null);
       fetchDiscounts();
     } catch (error) {
@@ -163,15 +143,7 @@ export function ClientDiscounts() {
     }
 
     try {
-      const response = await fetch(`/api/discounts/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Ошибка при удалении скидки');
-      }
-
+      await deleteDiscount(id);
       toast.success('Скидка успешно удалена');
       fetchDiscounts();
     } catch (error) {
